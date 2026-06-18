@@ -7,43 +7,56 @@
 <body class="bg-light">
     <div class="container mt-4">
         <h2>HLC Command Center</h2>
-        <!-- Tabs for Switching Views -->
-        <ul class="nav nav-tabs">
-            <li class="nav-item"><a class="nav-link active" onclick="showTab('active')">Active Cases</a></li>
-            <li class="nav-item"><a class="nav-link" onclick="showTab('history')">History</a></li>
-        </ul>
-        
-        <div id="dashboard" class="mt-3 p-3 bg-white border">
-            <!-- Table will be injected here by JavaScript -->
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th><th>Patient</th><th>Country</th><th>Status</th><th>Edit</th>
-                    </tr>
-                </thead>
-                <tbody id="caseBody"></tbody>
-            </table>
-        </div>
+        <table class="table table-hover bg-white border mt-3">
+            <thead>
+                <tr>
+                    <th>ID</th><th>Patient</th><th>Country</th><th>Status</th><th>Edit</th>
+                </tr>
+            </thead>
+            <tbody id="caseBody">
+                <tr><td colspan="5" class="text-center">Loading cases...</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <script>
+        // REPLACE THIS WITH YOUR NEW DEPLOYMENT URL
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
 
         async function fetchCases() {
-            const response = await fetch(SCRIPT_URL + "?action=getCases");
-            const data = await response.json();
-            renderTable(data);
+            try {
+                // Using 'cors' mode with the updated headers in Apps Script
+                const response = await fetch(SCRIPT_URL + "?action=getCases", {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                const result = await response.json();
+                renderTable(result.data);
+            } catch (err) {
+                console.error("Fetch error:", err);
+                document.getElementById('caseBody').innerHTML = '<tr><td colspan="5" class="text-danger">Error loading data. Check console.</td></tr>';
+            }
         }
 
         function renderTable(data) {
-            // Logic to filter: if tab is 'active', filter out "Closed" or "Completed" status
             const tbody = document.getElementById('caseBody');
             tbody.innerHTML = '';
-            data.forEach(row => {
-                // Assuming Status is index 13 (Column N)
-                let rowHtml = `<tr><td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[13]}</td><td><button class="btn btn-sm btn-primary">Edit</button></td></tr>`;
-                tbody.innerHTML += rowHtml;
-            });
+            
+            // Start from index 1 to skip header row
+            for(let i = 1; i < data.length; i++) {
+                let row = data[i];
+                // Column N is Status (index 13)
+                if (row[13] !== "Closed") {
+                    let rowHtml = `<tr>
+                        <td>${row[0]}</td>
+                        <td>${row[3]}</td>
+                        <td>${row[6]}</td>
+                        <td>${row[13]}</td>
+                        <td><button class="btn btn-sm btn-primary">Edit</button></td>
+                    </tr>`;
+                    tbody.innerHTML += rowHtml;
+                }
+            }
         }
         
         fetchCases();
