@@ -20,22 +20,24 @@
     </div>
 
     <script>
-        // REPLACE THIS WITH YOUR NEW DEPLOYMENT URL
+        // REPLACE WITH THE URL FROM YOUR "NEW VERSION" DEPLOYMENT
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
 
-        async function fetchCases() {
-            try {
-                // Using 'cors' mode with the updated headers in Apps Script
-                const response = await fetch(SCRIPT_URL + "?action=getCases", {
-                    method: 'GET',
-                    mode: 'cors'
-                });
-                const result = await response.json();
+        // JSONP Implementation to bypass CORS
+        function fetchCases() {
+            const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+            
+            // Define the callback function globally
+            window[callbackName] = function(result) {
                 renderTable(result.data);
-            } catch (err) {
-                console.error("Fetch error:", err);
-                document.getElementById('caseBody').innerHTML = '<tr><td colspan="5" class="text-danger">Error loading data. Check console.</td></tr>';
-            }
+                delete window[callbackName];
+                document.getElementById('scriptTag').remove();
+            };
+
+            const script = document.createElement('script');
+            script.id = 'scriptTag';
+            script.src = SCRIPT_URL + "?action=getCases&callback=" + callbackName;
+            document.body.appendChild(script);
         }
 
         function renderTable(data) {
@@ -45,7 +47,7 @@
             // Start from index 1 to skip header row
             for(let i = 1; i < data.length; i++) {
                 let row = data[i];
-                // Column N is Status (index 13)
+                // Status is index 13 (Column N)
                 if (row[13] !== "Closed") {
                     let rowHtml = `<tr>
                         <td>${row[0]}</td>
