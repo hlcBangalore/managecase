@@ -46,18 +46,24 @@
         }
 
         function renderTable() {
+            const filter = document.getElementById("searchInput").value.toLowerCase();
             const tbody = document.getElementById('caseBody');
             const order = { "New": 1, "In Process": 2, "Closed": 3 };
             
-            // Sort: Status priority, then by ID
-            let displayData = cachedData.slice(1).sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4) || a[0].localeCompare(b[0]));
+            // Filter and sort the entire dataset
+            let filteredData = cachedData.slice(1).filter(row => 
+                row.some(cell => String(cell).toLowerCase().includes(filter))
+            );
             
+            let sortedData = filteredData.sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
+        
             tbody.innerHTML = '';
-            displayData.forEach((row, i) => {
-                tbody.innerHTML += `<tr id="row-${i}" class="${row[8] === 'Urgent' ? 'urgent-row' : ''}">
-                    <td>${row[0]||''}</td><td>${row[3]||''}</td><td>${row[6]||''}</td><td>${row[7]||''}</td>
-                    <td>${row[12]||''}</td><td>${row[16]||''}</td><td>${row[13]||''}</td><td>${row[9]||''}</td>
-                    <td>${row[11]||''}</td><td>${row[14]||''}</td><td>${row[15]||''}</td>
+            sortedData.forEach((row, i) => {
+                // Build table rows dynamically using mapped indices
+                tbody.innerHTML += `<tr id="row-${i}">
+                    <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
+                    <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
+                    <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button>
                         <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>
@@ -86,7 +92,17 @@
         }
 
         function showDetails(i) {
-            document.getElementById('detailsContent').innerHTML = `<pre>${JSON.stringify(cachedData[i+1], null, 2)}</pre>`;
+            const row = cachedData[i+1];
+            // Mapping matches the Case_Log columns: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
+            const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+            
+            let html = `<table class="table table-bordered">`;
+            headers.forEach((h, idx) => {
+                html += `<tr><th>${h}</th><td>${row[idx] || ''}</td></tr>`;
+            });
+            html += `</table>`;
+            
+            document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
         }
 
