@@ -5,78 +5,86 @@
     <title>HLC Command Center</title>
 </head>
 <body class="bg-light">
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
         <h2>HLC Command Center</h2>
-        <input type="text" id="searchInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Search by name, country, or ID...">
-        <table class="table table-hover bg-white border mt-3">
+        <input type="text" id="searchInput" class="form-control mb-3" onkeyup="renderTable()" placeholder="Search by name, country, or ID...">
+        
+        <table class="table table-hover bg-white border">
             <thead>
                 <tr>
-                    <th>ID</th><th>Patient</th><th>Country</th><th>Stage</th><th>Status</th><th>Notes</th><th>Action</th>
+                    <th>ID</th><th>Patient</th><th>Country</th><th>Stage</th><th>Status</th><th>HLC</th><th>PVG</th><th>Dr. Name</th><th>Action</th>
                 </tr>
             </thead>
-            <tbody id="caseBody"><tr><td colspan="7" class="text-center">Loading...</td></tr></tbody>
+            <tbody id="caseBody"></tbody>
         </table>
     </div>
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
+        let cachedData = [];
+        let dropdowns = { hlcs: [], pvgs: [] };
 
-        function fetchCases() {
+        async function init() {
             const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = (res) => { renderTable(res.data); delete window[cb]; };
+            window[cb] = (res) => { 
+                cachedData = res.data; 
+                dropdowns = res.dropdowns;
+                renderTable(); 
+            };
             const s = document.createElement('script');
             s.src = SCRIPT_URL + "?action=getCases&callback=" + cb;
             document.body.appendChild(s);
         }
 
-        function renderTable(data) {
+        function renderTable() {
+            const filter = document.getElementById("searchInput").value.toLowerCase();
+            const order = { "New": 1, "In Process": 2, "Closed": 3 };
+            
+            let rows = cachedData.slice(1).filter(r => r.join('|').toLowerCase().includes(filter));
+            rows.sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4) || a[0].localeCompare(b[0]));
+
             const tbody = document.getElementById('caseBody');
             tbody.innerHTML = '';
-            for(let i = 1; i < data.length; i++) {
-                let row = data[i];
+            rows.forEach((row, i) => {
                 tbody.innerHTML += `
                     <tr id="row-${i}">
                         <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td>
                         <td class="stage-cell">${row[15]||''}</td>
                         <td class="status-cell">${row[13]}</td>
-                        <td class="notes-cell">${row[16]||''}</td>
+                        <td class="hlc-cell">${row[10]||''}</td>
+                        <td class="pvg-cell">${row[12]||''}</td>
+                        <td>${row[14]||''}</td>
                         <td>
-                            <button class="btn btn-sm btn-primary edit-btn" onclick="editRow(${i})">Edit</button>
-                            <div class="save-btns d-none">
-                                <button class="btn btn-sm btn-success" onclick="saveRow(${i}, '${row[0]}')">Save</button>
-                                <button class="btn btn-sm btn-secondary" onclick="fetchCases()">Cancel</button>
-                            </div>
+                            <button class="btn btn-sm btn-primary edit-btn" onclick="editRow(${i}, '${row[10]}', '${row[12]}', '${row[13]}')">Edit</button>
+                            <button class="btn btn-sm btn-success save-btn d-none" onclick="saveRow(${i}, '${row[0]}')">Save</button>
                         </td>
                     </tr>`;
-            }
+            });
         }
 
-        function editRow(i) {
+        function editRow(i, hlc, pvg, status) {
             const row = document.getElementById(`row-${i}`);
-            row.querySelector('.status-cell').innerHTML = `<select class="form-select form-select-sm"><option ${row.cells[4].innerText=='New'?'selected':''}>New</option><option ${row.cells[4].innerText=='In Process'?'selected':''}>In Process</option><option ${row.cells[4].innerText=='Closed'?'selected':''}>Closed</option></select>`;
-            row.querySelector('.stage-cell').innerHTML = `<select class="form-select form-select-sm"><option ${row.cells[3].innerText=='Quote'?'selected':''}>Quote</option><option ${row.cells[3].innerText=='Treatment'?'selected':''}>Treatment</option></select>`;
-            row.querySelector('.notes-cell').innerHTML = `<textarea class="form-control form-control-sm">${row.cells[5].innerText}</textarea>`;
+            row.querySelector('.status-cell').innerHTML = `<select class="form-select">${['New','In Process','Closed'].map(s=>`<option ${s==status?'selected':''}>${s}</option>`).join('')}</select>`;
+            row.querySelector('.hlc-cell').innerHTML = `<select class="form-select">${dropdowns.hlcs.map(h=>`<option ${h==hlc?'selected':''}>${h}</option>`).join('')}</select>`;
+            row.querySelector('.pvg-cell').innerHTML = `<select class="form-select">${dropdowns.pvgs.map(p=>`<option ${p==pvg?'selected':''}>${p}</option>`).join('')}</select>`;
             row.querySelector('.edit-btn').classList.add('d-none');
-            row.querySelector('.save-btns').classList.remove('d-none');
+            row.querySelector('.save-btn').classList.remove('d-none');
         }
 
         function saveRow(i, id) {
             const row = document.getElementById(`row-${i}`);
             const status = row.querySelector('.status-cell select').value;
-            const stage = row.querySelector('.stage-cell select').value;
-            const notes = row.querySelector('.notes-cell textarea').value;
+            const hlc = row.querySelector('.hlc-cell select').value;
+            const pvg = row.querySelector('.pvg-cell select').value;
+            
             const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = () => fetchCases();
+            window[cb] = () => init();
             const s = document.createElement('script');
-            s.src = `${SCRIPT_URL}?action=updateCase&caseId=${id}&status=${status}&stage=${stage}&notes=${encodeURIComponent(notes)}&callback=${cb}`;
+            s.src = `${SCRIPT_URL}?action=updateCase&caseId=${id}&status=${status}&hlc=${hlc}&pvg=${pvg}&callback=${cb}`;
             document.body.appendChild(s);
         }
 
-        function filterTable() {
-            let val = document.getElementById("searchInput").value.toLowerCase();
-            Array.from(document.getElementById("caseBody").rows).forEach(r => r.style.display = r.innerText.toLowerCase().includes(val) ? "" : "none");
-        }
-        fetchCases();
+        init();
     </script>
 </body>
 </html>
