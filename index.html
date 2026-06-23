@@ -25,19 +25,19 @@
             <div class="modal-content p-4">
                 <h5>Case Details</h5>
                 <div id="detailsContent"></div>
-                <button class="btn btn-secondary mt-3" onclick="bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide()">Close</button>
             </div>
         </div>
     </div>
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
-        let cachedData = [], currentMonths = 0;
+        let cachedData = [], currentMonths = 0, currentCaseId = "", dropdownData = { hlcs: [], pvgs: [] };
 
         async function init(m = 0) {
             const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => { 
                 cachedData = (m === 0) ? res.data : cachedData.slice(0, 1).concat(cachedData.slice(1).concat(res.data.slice(1)));
+                dropdownData = res.dropdowns || { hlcs: [], pvgs: [] };
                 renderTable(); 
             };
             const s = document.createElement('script');
@@ -49,163 +49,59 @@
             const filter = document.getElementById("searchInput").value.toLowerCase();
             const tbody = document.getElementById('caseBody');
             const order = { "New": 1, "In Process": 2, "Closed": 3 };
-            
-            // Filter and sort the entire dataset
-            let filteredData = cachedData.slice(1).filter(row => 
-                row.some(cell => String(cell).toLowerCase().includes(filter))
-            );
-            
-            let sortedData = filteredData.sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
-        
+            let sortedData = cachedData.slice(1).filter(row => row.some(c => String(c).toLowerCase().includes(filter)))
+                             .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
             tbody.innerHTML = '';
-            sortedData.forEach((row, i) => {
-                // Build table rows dynamically using mapped indices
-                tbody.innerHTML += `<tr id="row-${i}">
+            sortedData.forEach(row => {
+                tbody.innerHTML += `<tr>
                     <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
                     <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
                     <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button>
-                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
-                    </td>
+                    <td><button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button></td>
                 </tr>`;
             });
         }
 
-        function editRow(i) {
-            const row = document.getElementById(`row-${i}`);
-            const originalValues = [];
-            for(let j=0; j<11; j++) {
-                originalValues.push(row.cells[j].innerText);
-                row.cells[j].innerHTML = `<input class="form-control" value="${row.cells[j].innerText}">`;
-            }
-            row.cells[11].innerHTML = `
-                <button class="btn btn-sm btn-success" onclick="saveRow(${i}, '${row.cells[0].querySelector('input').value}')">Save</button>
-                <button class="btn btn-sm btn-secondary" onclick="cancelEdit(${i}, ${JSON.stringify(originalValues).replace(/"/g, "'")})">Cancel</button>`;
-        }
-
-        function saveRow(i, id) {
-            const inputs = document.getElementById(`row-${i}`).querySelectorAll('input');
-            const url = `${SCRIPT_URL}?action=updateCase&caseId=${id}&patient=${inputs[1].value}&country=${inputs[2].value}&congregation=${inputs[3].value}&diagnosis=${inputs[4].value}&stage=${inputs[5].value}&status=${inputs[6].value}&hlc=${inputs[7].value}&pvg=${inputs[8].value}&doctor=${inputs[9].value}&hospital=${inputs[10].value}&callback=cb_save`;
-            window.cb_save = () => { alert("Saved!"); init(0); };
-            const s = document.createElement('script'); s.src = url; document.body.appendChild(s);
-        }
-        
-        let currentCaseId = ""; 
-        
         function showDetails(id) {
-            currentCaseId = id; // Store ID globally
-            const row = cachedData.find(r => r[0] === id); // Retrieve correct row by ID
-            if (!row) return;
-        
+            currentCaseId = id;
+            const row = cachedData.find(r => r[0] === id);
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
-            
             let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
-                html += `<tr><th>${h}</th><td class="cell-val" data-value="${row[idx] || ''}">${row[idx] || ''}</td></tr>`;
+                html += `<tr><th>${h}</th><td class="cell-val" data-value="${row[idx]||''}">${row[idx]||''}</td></tr>`;
             });
-            html += `</table>`;
-            
-            html += `<div id="modalActions">
-                        <button class="btn btn-primary" onclick="toggleEdit()">Edit</button>
-                     </div>`;
-            
+            html += `</table><div id="modalActions"><button class="btn btn-primary" onclick="toggleEdit()">Edit</button> <button class="btn btn-secondary" onclick="closeModal()">Close</button></div>`;
             document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
         }
-        
-        function resetView() {
-            showDetails(currentCaseId); // Re-render using the stored ID
-        }
-        
-        // We need to access dropdowns from the global scope (res in your init)
-        let dropdownData = { hlcs: [], pvgs: [] };
-        
-        // Update your init() to save dropdowns globally:
-        // window[cb] = (res) => { cachedData = ...; dropdownData = res.dropdowns; renderTable(); };
-        
+
         function toggleEdit() {
-            const cells = document.querySelectorAll('.cell-val');
-            const actions = document.getElementById('modalActions');
-            
-            cells.forEach((cell, idx) => {
+            document.querySelectorAll('.cell-val').forEach((cell, idx) => {
                 const val = cell.getAttribute('data-value');
-                const header = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"][idx];
-                
-                // Read-only fields
-                if (idx === 0 || idx === 1) {
-                    cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
-                } 
-                // HLC Dropdown (Primary_HLC is index 9)
-                else if (idx === 9) {
-                    let options = dropdownData.hlcs.map(h => `<option value="${h}" ${val === h ? 'selected' : ''}>${h}</option>`).join('');
-                    cell.innerHTML = `<select class="form-control">${options}</select>`;
-                }
-                // PVG Dropdown (PVG is index 11)
-                else if (idx === 11) {
-                    let options = dropdownData.pvgs.map(p => `<option value="${p}" ${val === p ? 'selected' : ''}>${p}</option>`).join('');
-                    cell.innerHTML = `<select class="form-control">${options}</select>`;
-                }
-                // Standard inputs for everything else
-                else {
-                    cell.innerHTML = `<input class="form-control" value="${val}">`;
-                }
+                if (idx === 0 || idx === 1) cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
+                else if (idx === 9) cell.innerHTML = `<select class="form-control">${dropdownData.hlcs.map(h => `<option ${val==h?'selected':''}>${h}</option>`).join('')}</select>`;
+                else if (idx === 11) cell.innerHTML = `<select class="form-control">${dropdownData.pvgs.map(p => `<option ${val==p?'selected':''}>${p}</option>`).join('')}</select>`;
+                else cell.innerHTML = `<input class="form-control" value="${val}">`;
             });
-            
-            actions.innerHTML = `
-                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
-                <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+            document.getElementById('modalActions').innerHTML = `<button class="btn btn-success" onclick="saveModalChanges()">Save</button> <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
         }
-    
-        
+
         async function saveModalChanges() {
-            const table = document.getElementById('detailsTable');
-            // Select BOTH inputs and selects
-            const controls = table.querySelectorAll('input, select');
-            const caseId = controls[0].value;
+            const controls = document.getElementById('detailsTable').querySelectorAll('input, select');
+            const params = new URLSearchParams({ action: 'updateCase', caseId: currentCaseId, patient: controls[3].value, country: controls[6].value, congregation: controls[7].value, diagnosis: controls[12].value, stage: controls[16].value, status: controls[13].value, hlc: controls[9].value, pvg: controls[11].value, doctor: controls[14].value, hospital: controls[15].value });
             
-            // Build parameters object
-            const params = new URLSearchParams({
-                action: 'updateCase',
-                caseId: caseId,
-                patient: controls[3].value,
-                country: controls[6].value,
-                congregation: controls[7].value,
-                diagnosis: controls[12].value,
-                stage: controls[16].value,
-                status: controls[13].value,
-                hlc: controls[9].value,
-                pvg: controls[11].value,
-                doctor: controls[14].value,
-                hospital: controls[15].value
-            });
-        
-            // 1. Hide modal immediately
             const modalEl = document.getElementById('detailsModal');
             bootstrap.Modal.getInstance(modalEl).hide();
-        
-            // 2. Use fetch for non-blocking communication
-            try {
-                const response = await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-                alert("Saved successfully!");
-                init(); // Refresh data
-            } catch (e) {
-                console.error(e);
-                alert("Error saving data. Check console.");
-            }
-        }
-        
-        function closeModal() {
-            bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide();
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            
+            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
+            alert("Saved!"); init();
         }
 
-        function cancelEdit(i, vals) {
-            const row = document.getElementById(`row-${i}`);
-            for(let j=0; j<11; j++) row.cells[j].innerText = vals[j];
-            row.cells[11].innerHTML = `<button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button> <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>`;
-        }
-
+        function resetView() { showDetails(currentCaseId); }
+        function closeModal() { bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide(); }
         function loadClosed() { init(currentMonths += 2); }
+        
         init();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
