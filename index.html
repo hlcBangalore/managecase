@@ -32,18 +32,29 @@
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
         let cachedData = [];
-        
-        // Mapping: ID(0), Patient(3), Country(6), Congregation(7), Diagnosis(12), Stage(15), Status(13), HLC(9), PVG(11), Dr(14), Hospital(15)
-        // Note: Adjust indices below based on your actual sheet column order (0-indexed)
+
+        async function init() {
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            window[cb] = (res) => { 
+                cachedData = res.data; 
+                renderTable(); 
+            };
+            const s = document.createElement('script');
+            s.src = SCRIPT_URL + "?action=getCases&callback=" + cb;
+            document.body.appendChild(s);
+        }
+
         function renderTable() {
             const tbody = document.getElementById('caseBody');
             tbody.innerHTML = '';
+            if (cachedData.length === 0) return;
+
             cachedData.slice(1).forEach((row, i) => {
                 tbody.innerHTML += `
                     <tr id="row-${i}">
-                        <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
-                        <td>${row[12]}</td><td>${row[15]}</td><td>${row[13]}</td><td>${row[9]}</td>
-                        <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
+                        <td>${row[0]||''}</td><td>${row[3]||''}</td><td>${row[6]||''}</td><td>${row[7]||''}</td>
+                        <td>${row[12]||''}</td><td>${row[15]||''}</td><td>${row[13]||''}</td><td>${row[9]||''}</td>
+                        <td>${row[11]||''}</td><td>${row[14]||''}</td><td>${row[15]||''}</td>
                         <td>
                             <button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button>
                             <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>
@@ -60,12 +71,15 @@
 
         function editRow(i) {
             const row = document.getElementById(`row-${i}`);
-            // Convert cells to inputs
-            for(let j=1; j<11; j++) {
+            for(let j=0; j<11; j++) {
                 row.cells[j].innerHTML = `<input class="form-control" value="${row.cells[j].innerText}">`;
             }
             row.cells[11].innerHTML = `<button class="btn btn-success" onclick="saveRow(${i})">Save</button>`;
         }
+
+        // Initialize on load
+        init();
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
