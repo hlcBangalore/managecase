@@ -98,22 +98,43 @@
             const row = cachedData[i+1];
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
             
-            let html = `<table class="table table-bordered" id="editTable">`;
+            let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
-                // ID (index 0) and Date (index 1) are read-only
-                const isReadOnly = (idx === 0 || idx === 1) ? 'readonly' : '';
-                html += `<tr><th>${h}</th><td><input class="form-control" name="${h}" value="${row[idx] || ''}" ${isReadOnly}></td></tr>`;
+                // Display as plain text by default, store value in data-value attribute
+                html += `<tr><th>${h}</th><td class="cell-val" data-value="${row[idx] || ''}">${row[idx] || ''}</td></tr>`;
             });
             html += `</table>`;
             
-            // Buttons container
+            // Action buttons
             html += `<div id="modalActions">
-                        <button class="btn btn-primary" onclick="saveModalChanges()">Save</button>
-                        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                        <button class="btn btn-primary" onclick="toggleEdit()">Edit</button>
                      </div>`;
             
             document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
+        }
+        
+        function toggleEdit() {
+            const cells = document.querySelectorAll('.cell-val');
+            const actions = document.getElementById('modalActions');
+            
+            // Switch cells to input mode
+            cells.forEach((cell, idx) => {
+                const val = cell.getAttribute('data-value');
+                // IDs and Dates remain read-only
+                const isRead = (idx === 0 || idx === 1) ? 'readonly' : '';
+                cell.innerHTML = `<input class="form-control" value="${val}" ${isRead}>`;
+            });
+            
+            // Replace Edit button with Save/Cancel
+            actions.innerHTML = `
+                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
+                <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+        }
+        
+        function resetView() {
+            // Simply re-render the view mode
+            showDetails(currentCaseIndex);
         }
         
         function saveModalChanges() {
