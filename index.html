@@ -20,7 +20,6 @@
         <button class="btn btn-primary mb-4" onclick="loadClosed()">Load Older Cases</button>
     </div>
 
-    <!-- Details Modal -->
     <div class="modal" id="detailsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content p-4">
@@ -38,7 +37,7 @@
         async function init(m = 0) {
             const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => { 
-                cachedData = (m === 0) ? res.data : cachedData.concat(res.data.slice(1));
+                cachedData = (m === 0) ? res.data : cachedData.slice(0, 1).concat(cachedData.slice(1).concat(res.data.slice(1)));
                 renderTable(); 
             };
             const s = document.createElement('script');
@@ -48,9 +47,13 @@
 
         function renderTable() {
             const tbody = document.getElementById('caseBody');
+            const order = { "New": 1, "In Process": 2, "Closed": 3 };
+            
+            // Sort: Status priority, then by ID
+            let displayData = cachedData.slice(1).sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4) || a[0].localeCompare(b[0]));
+            
             tbody.innerHTML = '';
-            // Data indices per Case_Log: ID(0), Patient(3), Country(6), Congregation(7), Diagnosis(12), Stage(16), Status(13), HLC(9), PVG(11), Dr(14), Hospital(15)
-            cachedData.slice(1).forEach((row, i) => {
+            displayData.forEach((row, i) => {
                 tbody.innerHTML += `<tr id="row-${i}" class="${row[8] === 'Urgent' ? 'urgent-row' : ''}">
                     <td>${row[0]||''}</td><td>${row[3]||''}</td><td>${row[6]||''}</td><td>${row[7]||''}</td>
                     <td>${row[12]||''}</td><td>${row[16]||''}</td><td>${row[13]||''}</td><td>${row[9]||''}</td>
@@ -76,16 +79,14 @@
         }
 
         function saveRow(i, id) {
-            const row = document.getElementById(`row-${i}`);
-            const inputs = row.querySelectorAll('input');
+            const inputs = document.getElementById(`row-${i}`).querySelectorAll('input');
             const url = `${SCRIPT_URL}?action=updateCase&caseId=${id}&patient=${inputs[1].value}&country=${inputs[2].value}&congregation=${inputs[3].value}&diagnosis=${inputs[4].value}&stage=${inputs[5].value}&status=${inputs[6].value}&hlc=${inputs[7].value}&pvg=${inputs[8].value}&doctor=${inputs[9].value}&hospital=${inputs[10].value}&callback=cb_save`;
-            window.cb_save = () => { alert("Saved!"); init(); };
+            window.cb_save = () => { alert("Saved!"); init(0); };
             const s = document.createElement('script'); s.src = url; document.body.appendChild(s);
         }
 
         function showDetails(i) {
-            const row = cachedData[i+1];
-            document.getElementById('detailsContent').innerHTML = `<pre>${JSON.stringify(row, null, 2)}</pre>`;
+            document.getElementById('detailsContent').innerHTML = `<pre>${JSON.stringify(cachedData[i+1], null, 2)}</pre>`;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
         }
 
@@ -95,8 +96,8 @@
             row.cells[11].innerHTML = `<button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button> <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>`;
         }
 
-        init();
         function loadClosed() { init(currentMonths += 2); }
+        init();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
