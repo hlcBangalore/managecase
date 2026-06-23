@@ -58,7 +58,7 @@
                     <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
                     <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="showDetails('${row[0]}')">Edit</button>
+                        <button class="btn btn-sm btn-primary" onclick="editRow('${row[0]}')">Edit</button>
                         <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
                     </td>
                 </tr>`;
@@ -80,15 +80,29 @@
         }
 
         function toggleEdit() {
-            document.querySelectorAll('.cell-val').forEach((cell) => {
-                const idx = parseInt(cell.getAttribute('data-idx'));
+            const cells = document.querySelectorAll('.cell-val');
+            // Ensure dropdownData is ready
+            if (!dropdownData.hlcs.length) { console.warn("Dropdowns not loaded!"); }
+        
+            cells.forEach((cell, idx) => {
                 const val = cell.getAttribute('data-value');
-                if (idx === 0 || idx === 1) cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
-                else if (idx === 9) cell.innerHTML = `<select class="form-control">${dropdownData.hlcs.map(h => `<option value="${h}" ${val==h?'selected':''}>${h}</option>`).join('')}</select>`;
-                else if (idx === 11) cell.innerHTML = `<select class="form-control">${dropdownData.pvgs.map(p => `<option value="${p}" ${val==p?'selected':''}>${p}</option>`).join('')}</select>`;
-                else cell.innerHTML = `<input class="form-control" value="${val}">`;
+                // Primary_HLC index = 9, PVG index = 11
+                if (idx === 9) {
+                    cell.innerHTML = `<select class="form-control">
+                        ${dropdownData.hlcs.map(h => `<option value="${h}" ${val==h?'selected':''}>${h}</option>`).join('')}
+                    </select>`;
+                } else if (idx === 11) {
+                    cell.innerHTML = `<select class="form-control">
+                        ${dropdownData.pvgs.map(p => `<option value="${p}" ${val==p?'selected':''}>${p}</option>`).join('')}
+                    </select>`;
+                } else if (idx !== 0 && idx !== 1) {
+                    cell.innerHTML = `<input class="form-control" value="${val}">`;
+                }
             });
-            document.getElementById('modalActions').innerHTML = `<button class="btn btn-success" onclick="saveModalChanges()">Save</button> <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+            // Update buttons
+            document.getElementById('modalActions').innerHTML = `
+                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
+                <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
         }
 
         async function saveModalChanges() {
@@ -101,6 +115,18 @@
             alert("Saved!"); init();
         }
 
+        function closeModal() {
+            const modalEl = document.getElementById('detailsModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            // Crucial: Manually remove backdrop and reset body styles
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
         function resetView() { showDetails(currentCaseId); }
         function loadClosed() { init(currentMonths += 2); }
         
