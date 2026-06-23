@@ -20,7 +20,7 @@
         <button class="btn btn-primary mb-4" onclick="loadClosed()">Load Older Cases</button>
     </div>
 
-    <div class="modal" id="detailsModal" tabindex="-1">
+    <div class="modal fade" id="detailsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content p-4">
                 <h5>Case Details</h5>
@@ -57,10 +57,7 @@
                     <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
                     <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
                     <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="editRow('${row[0]}')">Edit</button>
-                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
-                    </td>
+                    <td><button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button></td>
                 </tr>`;
             });
         }
@@ -74,43 +71,28 @@
             headers.forEach((h, idx) => {
                 html += `<tr><th>${h}</th><td class="cell-val" data-idx="${idx}" data-value="${row[idx]||''}">${row[idx]||''}</td></tr>`;
             });
-            html += `</table><div id="modalActions"><button class="btn btn-primary" onclick="toggleEdit()">Edit</button> <button class="btn btn-secondary" onclick="bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide()">Close</button></div>`;
+            html += `</table><div id="modalActions"><button class="btn btn-primary" onclick="toggleEdit()">Edit</button> <button class="btn btn-secondary" onclick="closeModal()">Close</button></div>`;
             document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
         }
 
         function toggleEdit() {
-            const cells = document.querySelectorAll('.cell-val');
-            // Ensure dropdownData is ready
-            if (!dropdownData.hlcs.length) { console.warn("Dropdowns not loaded!"); }
-        
-            cells.forEach((cell, idx) => {
+            document.querySelectorAll('.cell-val').forEach((cell) => {
+                const idx = parseInt(cell.getAttribute('data-idx'));
                 const val = cell.getAttribute('data-value');
-                // Primary_HLC index = 9, PVG index = 11
-                if (idx === 9) {
-                    cell.innerHTML = `<select class="form-control">
-                        ${dropdownData.hlcs.map(h => `<option value="${h}" ${val==h?'selected':''}>${h}</option>`).join('')}
-                    </select>`;
-                } else if (idx === 11) {
-                    cell.innerHTML = `<select class="form-control">
-                        ${dropdownData.pvgs.map(p => `<option value="${p}" ${val==p?'selected':''}>${p}</option>`).join('')}
-                    </select>`;
-                } else if (idx !== 0 && idx !== 1) {
-                    cell.innerHTML = `<input class="form-control" value="${val}">`;
-                }
+                if (idx === 0 || idx === 1) cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
+                else if (idx === 9) cell.innerHTML = `<select class="form-control">${dropdownData.hlcs.map(h => `<option value="${h}" ${val==h?'selected':''}>${h}</option>`).join('')}</select>`;
+                else if (idx === 11) cell.innerHTML = `<select class="form-control">${dropdownData.pvgs.map(p => `<option value="${p}" ${val==p?'selected':''}>${p}</option>`).join('')}</select>`;
+                else cell.innerHTML = `<input class="form-control" value="${val}">`;
             });
-            // Update buttons
-            document.getElementById('modalActions').innerHTML = `
-                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
-                <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+            document.getElementById('modalActions').innerHTML = `<button class="btn btn-success" onclick="saveModalChanges()">Save</button> <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
         }
 
         async function saveModalChanges() {
             const inputs = document.getElementById('detailsTable').querySelectorAll('input, select');
             const params = new URLSearchParams({ action: 'updateCase', caseId: currentCaseId, patient: inputs[3].value, country: inputs[6].value, congregation: inputs[7].value, diagnosis: inputs[12].value, stage: inputs[16].value, status: inputs[13].value, hlc: inputs[9].value, pvg: inputs[11].value, doctor: inputs[14].value, hospital: inputs[15].value });
             
-            const modalEl = document.getElementById('detailsModal');
-            bootstrap.Modal.getInstance(modalEl).hide();
+            closeModal();
             await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
             alert("Saved!"); init();
         }
@@ -118,18 +100,13 @@
         function closeModal() {
             const modalEl = document.getElementById('detailsModal');
             const modalInstance = bootstrap.Modal.getInstance(modalEl);
-            if (modalInstance) {
-                modalInstance.hide();
-            }
-            // Crucial: Manually remove backdrop and reset body styles
+            if (modalInstance) modalInstance.hide();
             document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
             document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
+            document.body.style = "";
         }
         function resetView() { showDetails(currentCaseId); }
         function loadClosed() { init(currentMonths += 2); }
-        
         init();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
