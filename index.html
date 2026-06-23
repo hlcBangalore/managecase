@@ -68,18 +68,23 @@
         function editInline(id) {
             const row = document.getElementById(`row-${id}`);
             const cells = row.querySelectorAll('td');
-            // Store original for cancel
             row.dataset.original = JSON.stringify(Array.from(cells).map(c => c.innerText));
-            
             for (let i = 1; i < 11; i++) {
                 cells[i].innerHTML = `<input class="form-control form-control-sm" value="${cells[i].innerText}">`;
             }
-            cells[11].innerHTML = `<button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button>`;
+            cells[11].innerHTML = `<div class="btn-group"><button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button><button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button></div>`;
+        }
+
+        function cancelInline(id) {
+            const row = document.getElementById(`row-${id}`);
+            const original = JSON.parse(row.dataset.original);
+            const cells = row.querySelectorAll('td');
+            for (let i = 1; i < 11; i++) cells[i].innerText = original[i];
+            cells[11].innerHTML = `<button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button><button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
         }
 
         async function saveInline(id) {
-            const row = document.getElementById(`row-${id}`);
-            const inputs = row.querySelectorAll('input');
+            const inputs = document.getElementById(`row-${id}`).querySelectorAll('input');
             const params = new URLSearchParams({ action: 'updateCase', caseId: id, patient: inputs[0].value, country: inputs[1].value, congregation: inputs[2].value, diagnosis: inputs[3].value, stage: inputs[4].value, status: inputs[5].value, hlc: inputs[6].value, pvg: inputs[7].value, doctor: inputs[8].value, hospital: inputs[9].value });
             await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
             init();
@@ -89,6 +94,7 @@
             currentCaseId = id;
             const row = cachedData.find(r => r[0] === id);
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+            
             let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
                 html += `<tr><th>${h}</th><td class="cell-val" data-idx="${idx}" data-value="${row[idx]||''}">${row[idx]||''}</td></tr>`;
