@@ -66,7 +66,7 @@
                     <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button>
-                        <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>
+                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
                     </td>
                 </tr>`;
             });
@@ -91,27 +91,31 @@
             const s = document.createElement('script'); s.src = url; document.body.appendChild(s);
         }
 
-        let currentCaseIndex = 0; // To track which case is being edited
+        let currentCaseId = ""; 
         
-        function showDetails(i) {
-            currentCaseIndex = i;
-            const row = cachedData[i+1];
+        function showDetails(id) {
+            currentCaseId = id; // Store ID globally
+            const row = cachedData.find(r => r[0] === id); // Retrieve correct row by ID
+            if (!row) return;
+        
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
             
             let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
-                // Display as plain text by default, store value in data-value attribute
                 html += `<tr><th>${h}</th><td class="cell-val" data-value="${row[idx] || ''}">${row[idx] || ''}</td></tr>`;
             });
             html += `</table>`;
             
-            // Action buttons
             html += `<div id="modalActions">
                         <button class="btn btn-primary" onclick="toggleEdit()">Edit</button>
                      </div>`;
             
             document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
+        }
+        
+        function resetView() {
+            showDetails(currentCaseId); // Re-render using the stored ID
         }
         
         function toggleEdit() {
@@ -131,11 +135,7 @@
                 <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
                 <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
         }
-        
-        function resetView() {
-            // Simply re-render the view mode
-            showDetails(currentCaseIndex);
-        }
+    
         
         function saveModalChanges() {
             // 1. Collect inputs
