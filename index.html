@@ -76,14 +76,35 @@
         }
 
         function toggleEdit() {
-            document.querySelectorAll('.cell-val').forEach((cell, idx) => {
+            const cells = document.querySelectorAll('.cell-val');
+            const actions = document.getElementById('modalActions');
+            
+            cells.forEach((cell, idx) => {
                 const val = cell.getAttribute('data-value');
-                if (idx === 0 || idx === 1) cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
-                else if (idx === 9) cell.innerHTML = `<select class="form-control">${dropdownData.hlcs.map(h => `<option ${val==h?'selected':''}>${h}</option>`).join('')}</select>`;
-                else if (idx === 11) cell.innerHTML = `<select class="form-control">${dropdownData.pvgs.map(p => `<option ${val==p?'selected':''}>${p}</option>`).join('')}</select>`;
-                else cell.innerHTML = `<input class="form-control" value="${val}">`;
+                
+                // ID (0) and Date (1) are read-only
+                if (idx === 0 || idx === 1) {
+                    cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
+                } 
+                // Primary_HLC is at index 9
+                else if (idx === 9) {
+                    let options = dropdownData.hlcs.map(h => `<option value="${h}" ${val === h ? 'selected' : ''}>${h}</option>`).join('');
+                    cell.innerHTML = `<select class="form-control">${options}</select>`;
+                }
+                // PVG is at index 11
+                else if (idx === 11) {
+                    let options = dropdownData.pvgs.map(p => `<option value="${p}" ${val === p ? 'selected' : ''}>${p}</option>`).join('');
+                    cell.innerHTML = `<select class="form-control">${options}</select>`;
+                }
+                // All other fields
+                else {
+                    cell.innerHTML = `<input class="form-control" value="${val}">`;
+                }
             });
-            document.getElementById('modalActions').innerHTML = `<button class="btn btn-success" onclick="saveModalChanges()">Save</button> <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+            
+            actions.innerHTML = `
+                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
+                <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
         }
 
         async function saveModalChanges() {
