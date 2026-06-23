@@ -138,17 +138,24 @@
         }
         
         function saveModalChanges() {
-            const inputs = document.getElementById('editTable').querySelectorAll('input');
+            // 1. Collect inputs
+            const inputs = document.getElementById('detailsTable').querySelectorAll('input');
             const caseId = inputs[0].value;
-            // Build parameters based on input names
-            let params = `action=updateCase&caseId=${caseId}`;
-            inputs.forEach(input => {
-                params += `&${input.name.toLowerCase()}=${encodeURIComponent(input.value)}`;
-            });
             
+            // 2. Build URL params (matching 11 fields)
+            let params = `action=updateCase&caseId=${caseId}&patient=${encodeURIComponent(inputs[3].value)}&country=${encodeURIComponent(inputs[6].value)}&congregation=${encodeURIComponent(inputs[7].value)}&diagnosis=${encodeURIComponent(inputs[12].value)}&stage=${encodeURIComponent(inputs[16].value)}&status=${encodeURIComponent(inputs[13].value)}&hlc=${encodeURIComponent(inputs[9].value)}&pvg=${encodeURIComponent(inputs[11].value)}&doctor=${encodeURIComponent(inputs[14].value)}&hospital=${encodeURIComponent(inputs[15].value)}`;
+        
+            // 3. Immediately hide modal to prevent freezing
+            const modalEl = document.getElementById('detailsModal');
+            bootstrap.Modal.getInstance(modalEl).hide();
+        
+            // 4. Fire request
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${params}&callback=cb_save`;
-            window.cb_save = () => { alert("Saved!"); init(); closeModal(); };
+            window.cb_save = () => { 
+                alert("Saved successfully!"); 
+                init(); // Refresh data
+            };
             document.body.appendChild(s);
         }
         
