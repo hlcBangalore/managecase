@@ -2,95 +2,70 @@
 <html>
 <head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <title>HLC Command Center</title>
-    <style>
-        .urgent-row { background-color: #f8d7da !important; color: #721c24; }
-    </style>
+    <title>HLC Bangalore</title>
 </head>
 <body class="bg-light">
     <div class="container-fluid mt-4">
-        <h2>HLC Command Center</h2>
-        <input type="text" id="searchInput" class="form-control mb-3" onkeyup="renderTable()" placeholder="Search by name, country, or ID...">
-        
+        <h2>HLC Bangalore</h2>
+        <input type="text" id="searchInput" class="form-control mb-3" onkeyup="renderTable()" placeholder="Search...">
         <table class="table table-hover bg-white border">
             <thead>
                 <tr>
-                    <th>ID</th><th>Patient</th><th>Country</th><th>Diagnosis</th><th>Stage</th><th>Status</th><th>HLC</th><th>PVG</th><th>Action</th>
+                    <th>ID</th><th>Patient</th><th>Country</th><th>Congregation</th><th>Diagnosis</th><th>Stage</th><th>Status</th><th>HLC</th><th>PVG</th><th>Dr</th><th>Hospital</th><th>Actions</th>
                 </tr>
             </thead>
             <tbody id="caseBody"></tbody>
         </table>
     </div>
 
+    <!-- Details Modal -->
+    <div class="modal" id="detailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content p-4">
+                <h5>Case Details</h5>
+                <div id="detailsContent"></div>
+                <button class="btn btn-secondary mt-3" onclick="bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
         let cachedData = [];
-        let dropdowns = { hlcs: [], pvgs: [] };
-
-        async function init() {
-            const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = (res) => { 
-                cachedData = res.data; 
-                dropdowns = res.dropdowns;
-                renderTable(); 
-            };
-            const s = document.createElement('script');
-            s.src = SCRIPT_URL + "?action=getCases&callback=" + cb;
-            document.body.appendChild(s);
-        }
-
+        
+        // Mapping: ID(0), Patient(3), Country(6), Congregation(7), Diagnosis(12), Stage(15), Status(13), HLC(9), PVG(11), Dr(14), Hospital(15)
+        // Note: Adjust indices below based on your actual sheet column order (0-indexed)
         function renderTable() {
-            const filter = document.getElementById("searchInput").value.toLowerCase();
-            const order = { "New": 1, "In Process": 2, "Closed": 3 };
-            
-            let rows = cachedData.slice(1).filter(r => r.join('|').toLowerCase().includes(filter));
-            rows.sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4) || a[0].localeCompare(b[0]));
-
             const tbody = document.getElementById('caseBody');
             tbody.innerHTML = '';
-            rows.forEach((row, i) => {
-                // Check if Priority (Col I, index 8) is "Urgent"
-                const isUrgent = row[8] === "Urgent" ? "urgent-row" : "";
+            cachedData.slice(1).forEach((row, i) => {
                 tbody.innerHTML += `
-                    <tr id="row-${i}" class="${isUrgent}">
-                        <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td>
-                        <td class="diag-cell">${row[12]||''}</td>
-                        <td class="stage-cell">${row[15]||''}</td>
-                        <td class="status-cell">${row[13]}</td>
-                        <td class="hlc-cell">${row[10]||''}</td>
-                        <td class="pvg-cell">${row[12]||''}</td>
+                    <tr id="row-${i}">
+                        <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
+                        <td>${row[12]}</td><td>${row[15]}</td><td>${row[13]}</td><td>${row[9]}</td>
+                        <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
                         <td>
-                            <button class="btn btn-sm btn-primary edit-btn" onclick="editRow(${i}, '${row[10]}', '${row[12]}', '${row[13]}')">Edit</button>
-                            <button class="btn btn-sm btn-success save-btn d-none" onclick="saveRow(${i}, '${row[0]}')">Save</button>
+                            <button class="btn btn-sm btn-primary" onclick="editRow(${i})">Edit</button>
+                            <button class="btn btn-sm btn-info" onclick="showDetails(${i})">Details</button>
                         </td>
                     </tr>`;
             });
         }
 
-        function editRow(i, hlc, pvg, status) {
-            const row = document.getElementById(`row-${i}`);
-            row.querySelector('.status-cell').innerHTML = `<select class="form-select">${['New','In Process','Closed'].map(s=>`<option ${s==status?'selected':''}>${s}</option>`).join('')}</select>`;
-            row.querySelector('.hlc-cell').innerHTML = `<select class="form-select">${dropdowns.hlcs.map(h=>`<option ${h==hlc?'selected':''}>${h}</option>`).join('')}</select>`;
-            row.querySelector('.pvg-cell').innerHTML = `<select class="form-select">${dropdowns.pvgs.map(p=>`<option ${p==pvg?'selected':''}>${p}</option>`).join('')}</select>`;
-            row.querySelector('.edit-btn').classList.add('d-none');
-            row.querySelector('.save-btn').classList.remove('d-none');
+        function showDetails(i) {
+            const row = cachedData[i+1];
+            document.getElementById('detailsContent').innerHTML = `<pre>${JSON.stringify(row, null, 2)}</pre>`;
+            new bootstrap.Modal(document.getElementById('detailsModal')).show();
         }
 
-        function saveRow(i, id) {
+        function editRow(i) {
             const row = document.getElementById(`row-${i}`);
-            const status = row.querySelector('.status-cell select').value;
-            const hlc = row.querySelector('.hlc-cell select').value;
-            const pvg = row.querySelector('.pvg-cell select').value;
-            
-            const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = () => init();
-            const s = document.createElement('script');
-            // Ensure updateCase sends the correct params matching backend mapping
-            s.src = `${SCRIPT_URL}?action=updateCase&caseId=${id}&status=${status}&hlc=${hlc}&pvg=${pvg}&callback=${cb}`;
-            document.body.appendChild(s);
+            // Convert cells to inputs
+            for(let j=1; j<11; j++) {
+                row.cells[j].innerHTML = `<input class="form-control" value="${row.cells[j].innerText}">`;
+            }
+            row.cells[11].innerHTML = `<button class="btn btn-success" onclick="saveRow(${i})">Save</button>`;
         }
-
-        init();
     </script>
 </body>
 </html>
