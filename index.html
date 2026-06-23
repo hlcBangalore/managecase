@@ -91,19 +91,48 @@
             const s = document.createElement('script'); s.src = url; document.body.appendChild(s);
         }
 
+        let currentCaseIndex = -1; // To track which case is being edited
+        
         function showDetails(i) {
+            currentCaseIndex = i;
             const row = cachedData[i+1];
-            // Mapping matches the Case_Log columns: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
             
-            let html = `<table class="table table-bordered">`;
+            let html = `<table class="table table-bordered" id="editTable">`;
             headers.forEach((h, idx) => {
-                html += `<tr><th>${h}</th><td>${row[idx] || ''}</td></tr>`;
+                // ID (index 0) and Date (index 1) are read-only
+                const isReadOnly = (idx === 0 || idx === 1) ? 'readonly' : '';
+                html += `<tr><th>${h}</th><td><input class="form-control" name="${h}" value="${row[idx] || ''}" ${isReadOnly}></td></tr>`;
             });
             html += `</table>`;
             
+            // Buttons container
+            html += `<div id="modalActions">
+                        <button class="btn btn-primary" onclick="saveModalChanges()">Save</button>
+                        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                     </div>`;
+            
             document.getElementById('detailsContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('detailsModal')).show();
+        }
+        
+        function saveModalChanges() {
+            const inputs = document.getElementById('editTable').querySelectorAll('input');
+            const caseId = inputs[0].value;
+            // Build parameters based on input names
+            let params = `action=updateCase&caseId=${caseId}`;
+            inputs.forEach(input => {
+                params += `&${input.name.toLowerCase()}=${encodeURIComponent(input.value)}`;
+            });
+            
+            const s = document.createElement('script');
+            s.src = `${SCRIPT_URL}?${params}&callback=cb_save`;
+            window.cb_save = () => { alert("Saved!"); init(); closeModal(); };
+            document.body.appendChild(s);
+        }
+        
+        function closeModal() {
+            bootstrap.Modal.getInstance(document.getElementById('detailsModal')).hide();
         }
 
         function cancelEdit(i, vals) {
