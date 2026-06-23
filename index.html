@@ -118,19 +118,40 @@
             showDetails(currentCaseId); // Re-render using the stored ID
         }
         
+        // We need to access dropdowns from the global scope (res in your init)
+        let dropdownData = { hlcs: [], pvgs: [] };
+        
+        // Update your init() to save dropdowns globally:
+        // window[cb] = (res) => { cachedData = ...; dropdownData = res.dropdowns; renderTable(); };
+        
         function toggleEdit() {
             const cells = document.querySelectorAll('.cell-val');
             const actions = document.getElementById('modalActions');
             
-            // Switch cells to input mode
             cells.forEach((cell, idx) => {
                 const val = cell.getAttribute('data-value');
-                // IDs and Dates remain read-only
-                const isRead = (idx === 0 || idx === 1) ? 'readonly' : '';
-                cell.innerHTML = `<input class="form-control" value="${val}" ${isRead}>`;
+                const header = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"][idx];
+                
+                // Read-only fields
+                if (idx === 0 || idx === 1) {
+                    cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
+                } 
+                // HLC Dropdown (Primary_HLC is index 9)
+                else if (idx === 9) {
+                    let options = dropdownData.hlcs.map(h => `<option value="${h}" ${val === h ? 'selected' : ''}>${h}</option>`).join('');
+                    cell.innerHTML = `<select class="form-control">${options}</select>`;
+                }
+                // PVG Dropdown (PVG is index 11)
+                else if (idx === 11) {
+                    let options = dropdownData.pvgs.map(p => `<option value="${p}" ${val === p ? 'selected' : ''}>${p}</option>`).join('');
+                    cell.innerHTML = `<select class="form-control">${options}</select>`;
+                }
+                // Standard inputs for everything else
+                else {
+                    cell.innerHTML = `<input class="form-control" value="${val}">`;
+                }
             });
             
-            // Replace Edit button with Save/Cancel
             actions.innerHTML = `
                 <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
                 <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
