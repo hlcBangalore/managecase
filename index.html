@@ -265,6 +265,14 @@ function toggleEdit() {
                 ).join('')}
             </select>`;
         }
+        else if (headerName === "Workflow_Stage") {
+            const stages = ["Quote", "Treatment"];
+            cell.innerHTML = `<select class="form-control">
+                ${stages.map(s => 
+                    `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+            </select>`;
+        }
         else if (headerName === "Treating_Dr") {
             // Remove any existing datalist first to avoid duplicates
             const existing = document.getElementById('doctorList');
