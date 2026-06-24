@@ -68,19 +68,90 @@
         function editInline(id) {
             const row = document.getElementById(`row-${id}`);
             const cells = row.querySelectorAll('td');
+            
+            // Store original text values for cancel
             row.dataset.original = JSON.stringify(Array.from(cells).map(c => c.innerText));
-            for (let i = 1; i < 11; i++) {
-                cells[i].innerHTML = `<input class="form-control form-control-sm" value="${cells[i].innerText}">`;
-            }
-            cells[11].innerHTML = `<div class="btn-group"><button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button><button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button></div>`;
+        
+            // Col indices in the table: 0=ID, 1=Patient, 2=Country, 3=Congregation, 
+            //                           4=Diagnosis, 5=Stage, 6=Status, 7=HLC, 8=PVG, 9=Doctor, 10=Hospital
+        
+            // Patient
+            cells[1].innerHTML = `<input class="form-control form-control-sm" value="${cells[1].innerText.replace(/"/g, '&quot;')}">`;
+            // Country
+            cells[2].innerHTML = `<input class="form-control form-control-sm" value="${cells[2].innerText.replace(/"/g, '&quot;')}">`;
+            // Congregation
+            cells[3].innerHTML = `<input class="form-control form-control-sm" value="${cells[3].innerText.replace(/"/g, '&quot;')}">`;
+            // Diagnosis
+            cells[4].innerHTML = `<input class="form-control form-control-sm" value="${cells[4].innerText.replace(/"/g, '&quot;')}">`;
+            // Stage
+            cells[5].innerHTML = `<input class="form-control form-control-sm" value="${cells[5].innerText.replace(/"/g, '&quot;')}">`;
+        
+            // Status — dropdown
+            const curStatus = cells[6].innerText.trim();
+            cells[6].innerHTML = `<select class="form-control form-control-sm">
+                ${["New","In Process","Closed"].map(s => 
+                    `<option value="${s}" ${s === curStatus ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+            </select>`;
+        
+            // Primary HLC — dropdown
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            const curHLC = cells[7].innerText.trim();
+            cells[7].innerHTML = `<select class="form-control form-control-sm">
+                <option value="">-- HLC --</option>
+                ${dropdownData.hlcs.map(h => 
+                    `<option value="${h}" ${normalize(h) === normalize(curHLC) ? 'selected' : ''}>${h}</option>`
+                ).join('')}
+            </select>`;
+        
+            // PVG — dropdown
+            const curPVG = cells[8].innerText.trim();
+            cells[8].innerHTML = `<select class="form-control form-control-sm">
+                <option value="">-- PVG --</option>
+                ${dropdownData.pvgs.map(p => 
+                    `<option value="${p}" ${normalize(p) === normalize(curPVG) ? 'selected' : ''}>${p}</option>`
+                ).join('')}
+            </select>`;
+        
+            // Doctor — datalist (free text + suggestions)
+            const existingDL = document.getElementById('inlineDoctorList');
+            if (existingDL) existingDL.remove();
+            const datalist = document.createElement('datalist');
+            datalist.id = 'inlineDoctorList';
+            dropdownData.doctors.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                datalist.appendChild(opt);
+            });
+            document.body.appendChild(datalist);
+            const curDoctor = cells[9].innerText.trim();
+            cells[9].innerHTML = `<input class="form-control form-control-sm" 
+                                         value="${curDoctor.replace(/"/g, '&quot;')}" 
+                                         list="inlineDoctorList" 
+                                         autocomplete="off"
+                                         placeholder="Doctor...">`;
+        
+            // Hospital
+            cells[10].innerHTML = `<input class="form-control form-control-sm" value="${cells[10].innerText.replace(/"/g, '&quot;')}">`;
+        
+            // Action buttons
+            cells[11].innerHTML = `<div class="btn-group">
+                <button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button>
+            </div>`;
         }
-
+        
         function cancelInline(id) {
             const row = document.getElementById(`row-${id}`);
             const original = JSON.parse(row.dataset.original);
             const cells = row.querySelectorAll('td');
             for (let i = 1; i < 11; i++) cells[i].innerText = original[i];
-            cells[11].innerHTML = `<button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button><button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
+            cells[11].innerHTML = `
+                <button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button>
+                <button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
+            // Clean up inline datalist
+            const dl = document.getElementById('inlineDoctorList');
+            if (dl) dl.remove();
         }
 
         async function saveInline(id) {
