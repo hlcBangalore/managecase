@@ -155,11 +155,39 @@
         }
 
         async function saveInline(id) {
-            const inputs = document.getElementById(`row-${id}`).querySelectorAll('input');
-            const params = new URLSearchParams({ action: 'updateCase', caseId: id, patient: inputs[0].value, country: inputs[1].value, congregation: inputs[2].value, diagnosis: inputs[3].value, stage: inputs[4].value, status: inputs[5].value, hlc: inputs[6].value, pvg: inputs[7].value, doctor: inputs[8].value, hospital: inputs[9].value });
+            // Use querySelector with attribute selector to avoid hyphen issues
+            const row = document.querySelector(`tr[id="row-${id}"]`);
+            if (!row) { console.error("Row not found for id:", id); return; }
+            
+            const cells = row.querySelectorAll('td');
+            console.log("Cells found:", cells.length); // Should be 12
+        
+            const getCell = (i) => {
+                const el = cells[i].querySelector('input, select');
+                return el ? el.value : '';
+            };
+        
+            const params = new URLSearchParams({ 
+                action:       'updateCase', 
+                caseId:       id, 
+                patient:      getCell(1), 
+                country:      getCell(2), 
+                congregation: getCell(3), 
+                diagnosis:    getCell(4), 
+                stage:        getCell(5), 
+                status:       getCell(6), 
+                hlc:          getCell(7), 
+                pvg:          getCell(8), 
+                doctor:       getCell(9), 
+                hospital:     getCell(10)
+            });
+        
             await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
+            const dl = document.getElementById('inlineDoctorList');
+            if (dl) dl.remove();
             init();
-        }
+        }        
+
 
 function showDetails(id) {
     currentCaseId = id;
