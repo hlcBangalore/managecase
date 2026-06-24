@@ -167,17 +167,27 @@ function toggleEdit() {
             </select>`;
         }
         else if (headerName === "Treating_Dr") {
-        	console.log("Doctors available:", dropdownData.doctors); // ← check this in console
-            cell.innerHTML = `
-                <input class="form-control" 
-                       value="${val.replace(/"/g, '&quot;')}" 
-                       list="doctorList" 
-                       placeholder="Type or select a doctor...">
-                <datalist id="doctorList">
-                    ${dropdownData.doctors.map(d => 
-                        `<option value="${d}">`
-                    ).join('')}
-                </datalist>`;
+            // Remove any existing datalist first to avoid duplicates
+            const existing = document.getElementById('doctorList');
+            if (existing) existing.remove();
+        
+            // Append datalist to modal content div, NOT inside the table cell
+            const datalist = document.createElement('datalist');
+            datalist.id = 'doctorList';
+            dropdownData.doctors.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                datalist.appendChild(opt);
+            });
+            document.getElementById('detailsContent').appendChild(datalist);
+        
+            // Input just references the datalist by id
+            cell.innerHTML = `<input class="form-control" 
+                                     id="treatingDrInput"
+                                     value="${val.replace(/"/g, '&quot;')}" 
+                                     list="doctorList" 
+                                     autocomplete="off"
+                                     placeholder="Type or select a doctor...">`;
         }
         else {
             cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}">`;
