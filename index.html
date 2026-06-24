@@ -31,7 +31,7 @@
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
-        let cachedData = [], currentMonths = 0, currentCaseId = "", dropdownData = { hlcs: [], pvgs: [] };
+        let cachedData = [], currentMonths = 0, currentCaseId = "", dropdownData = { hlcs: [], pvgs: [], doctors: [] };
 
         async function init(m = 0) {
             const cb = 'cb_' + Math.round(100000 * Math.random());
@@ -90,49 +90,153 @@
             init();
         }
 
-        function showDetails(id) {
-            currentCaseId = id;
-            const row = cachedData.find(r => r[0] === id);
-            const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
-            
-            let html = `<table class="table table-bordered" id="detailsTable">`;
-            headers.forEach((h, idx) => {
-                html += `<tr><th>${h}</th><td class="cell-val" data-idx="${idx}" data-value="${row[idx]||''}">${row[idx]||''}</td></tr>`;
-            });
-            html += `</table><div id="modalActions"><button class="btn btn-primary" onclick="toggleEdit()">Edit</button> <button class="btn btn-secondary" onclick="closeModal()">Close</button></div>`;
-            document.getElementById('detailsContent').innerHTML = html;
-            new bootstrap.Modal(document.getElementById('detailsModal')).show();
-        }
+function showDetails(id) {
+    currentCaseId = id;
+    const row = cachedData.find(r => r[0] === id);
+    const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", 
+                     "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", 
+                     "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+    
+    let html = `<table class="table table-bordered" id="detailsTable">`;
+    headers.forEach((h, idx) => {
+        // Use encodeURIComponent to safely store any value in data-value
+        const cellVal = row[idx] !== undefined ? String(row[idx]) : '';
+        html += `<tr>
+            <th>${h}</th>
+            <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">${cellVal}</td>
+        </tr>`;
+    });
+    html += `</table>
+    <div id="modalActions">
+        <button class="btn btn-primary" onclick="toggleEdit()">Edit</button> 
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+    </div>`;
+    document.getElementById('detailsContent').innerHTML = html;
+const modal = new bootstrap.Modal(document.getElementById('detailsModal'), { backdrop: true, keyboard: true });
+modal.show();
+}
 
-        function toggleEdit() {
-            document.querySelectorAll('.cell-val').forEach((cell) => {
-                const idx = parseInt(cell.getAttribute('data-idx'));
-                const val = cell.getAttribute('data-value');
-                if (idx === 0 || idx === 1) cell.innerHTML = `<input class="form-control" value="${val}" readonly>`;
-                else if (idx === 9) cell.innerHTML = `<select class="form-control">${dropdownData.hlcs.map(h => `<option value="${h}" ${val==h?'selected':''}>${h}</option>`).join('')}</select>`;
-                else if (idx === 11) cell.innerHTML = `<select class="form-control">${dropdownData.pvgs.map(p => `<option value="${p}" ${val==p?'selected':''}>${p}</option>`).join('')}</select>`;
-                else cell.innerHTML = `<input class="form-control" value="${val}">`;
-            });
-            document.getElementById('modalActions').innerHTML = `<button class="btn btn-success" onclick="saveModalChanges()">Save</button> <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
-        }
+function toggleEdit() {
+    const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", 
+                     "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", 
+                     "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
 
-        async function saveModalChanges() {
-            const inputs = document.getElementById('detailsTable').querySelectorAll('input, select');
-            const params = new URLSearchParams({ action: 'updateCase', caseId: currentCaseId, patient: inputs[3].value, country: inputs[6].value, congregation: inputs[7].value, diagnosis: inputs[12].value, stage: inputs[16].value, status: inputs[13].value, hlc: inputs[9].value, pvg: inputs[11].value, doctor: inputs[14].value, hospital: inputs[15].value });
-            
-            closeModal();
-            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-            alert("Saved!"); init();
-        }
+    // Scope all queries to detailsContent to avoid any document-level conflicts
+    const container = document.getElementById('detailsContent');
 
-        function closeModal() {
-            const modalEl = document.getElementById('detailsModal');
-            const modalInstance = bootstrap.Modal.getInstance(modalEl);
-            if (modalInstance) modalInstance.hide();
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style = "";
+    container.querySelectorAll('.cell-val').forEach((cell) => {
+        const idx = parseInt(cell.getAttribute('data-idx'));
+        const val = decodeURIComponent(cell.getAttribute('data-value') || '').trim();
+        const headerName = headers[idx];
+
+        if (headerName === "Case_ID" || headerName === "Date" || headerName === "Source") {
+            cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}" readonly>`;
+        } 
+        else if (headerName === "Primary_HLC" || headerName === "Secondary_HLC") {
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            cell.innerHTML = `<select class="form-control">
+                <option value="">-- Select HLC --</option>
+                ${dropdownData.hlcs.map(h => 
+                    `<option value="${h}" ${normalize(h) === normalize(val) ? 'selected' : ''}>${h}</option>`
+                ).join('')}
+            </select>`;
+        } 
+        else if (headerName === "PVG") {
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            cell.innerHTML = `<select class="form-control">
+                <option value="">-- Select PVG --</option>
+                ${dropdownData.pvgs.map(p => 
+                    `<option value="${p}" ${normalize(p) === normalize(val) ? 'selected' : ''}>${p}</option>`
+                ).join('')}
+            </select>`;
+        } 
+        else if (headerName === "Status") {
+            const statuses = ["New", "In Process", "Closed"];
+            cell.innerHTML = `<select class="form-control">
+                ${statuses.map(s => 
+                    `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+            </select>`;
         }
+        else if (headerName === "Priority") {
+            const priorities = ["Normal", "Urgent"];
+            cell.innerHTML = `<select class="form-control">
+                ${priorities.map(p => 
+                    `<option value="${p}" ${p === val ? 'selected' : ''}>${p}</option>`
+                ).join('')}
+            </select>`;
+        }
+        else if (headerName === "Treating_Dr") {
+        	console.log("Doctors available:", dropdownData.doctors); // ← check this in console
+            cell.innerHTML = `
+                <input class="form-control" 
+                       value="${val.replace(/"/g, '&quot;')}" 
+                       list="doctorList" 
+                       placeholder="Type or select a doctor...">
+                <datalist id="doctorList">
+                    ${dropdownData.doctors.map(d => 
+                        `<option value="${d}">`
+                    ).join('')}
+                </datalist>`;
+        }
+        else {
+            cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}">`;
+        }
+    });
+
+    // Scope modalActions lookup to container too
+    container.querySelector('#modalActions').innerHTML = `
+        <button class="btn btn-success me-2" onclick="saveModalChanges()">Save</button> 
+        <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
+}
+
+async function saveModalChanges() {
+    const table = document.getElementById('detailsTable');
+
+    // Helper: get value by data-idx
+    function getVal(idx) {
+        const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
+        return el ? el.value : '';
+    }
+
+    const params = new URLSearchParams({
+        action:        'updateCase',
+        caseId:        currentCaseId,
+        patient:       getVal(3),
+        country:       getVal(6),
+        congregation:  getVal(7),
+        diagnosis:     getVal(12),
+        stage:         getVal(16),
+        status:        getVal(13),
+        hlc:           getVal(9),   // Primary_HLC  → col J
+        secondary_hlc: getVal(10),  // Secondary_HLC → col K
+        pvg:           getVal(11),  // PVG           → col L
+        doctor:        getVal(14),
+        hospital:      getVal(15),
+        notes:         getVal(17)
+    });
+
+    closeModal();
+    await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
+    alert("Saved!");
+    init();
+}
+function closeModal() {
+    const modalEl = document.getElementById('detailsModal');
+    let modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (!modalInstance) {
+        modalInstance = new bootstrap.Modal(modalEl);
+    }
+    modalInstance.hide();
+    // Force cleanup in case backdrop lingers
+    modalEl.addEventListener('hidden.bs.modal', function handler() {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+        modalEl.removeEventListener('hidden.bs.modal', handler);
+    }, { once: true });
+}
         function resetView() { showDetails(currentCaseId); }
         function loadClosed() { init(currentMonths += 2); }
         
