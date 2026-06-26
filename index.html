@@ -241,13 +241,13 @@
         async function saveInline(id) {
             const row = document.querySelector(`tr[id="row-${id}"]`);
             if (!row) { console.error("Row not found for id:", id); return; }
-
+        
             const cells = row.querySelectorAll('td');
             const getCell = (i) => {
                 const el = cells[i].querySelector('input, select');
                 return el ? el.value : '';
             };
-
+        
             const params = new URLSearchParams({
                 action:       'updateCase',
                 caseId:       id,
@@ -262,11 +262,21 @@
                 doctor:       getCell(9),
                 hospital:     getCell(10)
             });
-
-            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-            const dl = document.getElementById('inlineDoctorList');
-            if (dl) dl.remove();
-            init();
+        
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            window[cb] = (res) => {
+                if (res && res.status === 'success') {
+                    alert("Saved!");
+                } else {
+                    alert("Save may have failed. Please check the sheet.");
+                }
+                const dl = document.getElementById('inlineDoctorList');
+                if (dl) dl.remove();
+                init();
+            };
+            const s = document.createElement('script');
+            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            document.body.appendChild(s);
         }
 
         // ── DETAILS MODAL ──────────────────────────────────────────────
@@ -390,11 +400,11 @@
                 const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
                 return el ? el.value : '';
             }
-
+        
             const params = new URLSearchParams({
                 action:        'updateCase',
                 caseId:        currentCaseId,
-                source:        getVal(2),  
+                source:        getVal(2),
                 patient:       getVal(3),
                 country:       getVal(6),
                 congregation:  getVal(7),
@@ -408,11 +418,20 @@
                 hospital:      getVal(15),
                 notes:         getVal(17)
             });
-
+        
             closeModal();
-            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-            alert("Saved!");
-            init();
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            window[cb] = (res) => {
+                if (res && res.status === 'success') {
+                    alert("Saved!");
+                } else {
+                    alert("Save may have failed. Please check the sheet.");
+                }
+                init();
+            };
+            const s = document.createElement('script');
+            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            document.body.appendChild(s);
         }
 
         function closeModal() {
