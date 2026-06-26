@@ -240,15 +240,16 @@
 
         async function saveInline(id) {
             const row = document.querySelector(`tr[id="row-${id}"]`);
-            if (!row) { console.error("Row not found for id:", id); return; }
-        
+            if (!row) return;
             const cells = row.querySelectorAll('td');
+            
             const getCell = (i) => {
                 const el = cells[i].querySelector('input, select');
                 return el ? el.value : '';
             };
         
-            const params = new URLSearchParams({
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            const params = {
                 action:       'updateCase',
                 caseId:       id,
                 patient:      getCell(1),
@@ -260,27 +261,23 @@
                 hlc:          getCell(7),
                 pvg:          getCell(8),
                 doctor:       getCell(9),
-                hospital:     getCell(10)
-            });
+                hospital:     getCell(10),
+                callback:     cb
+            };
         
-            const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => {
-                if (res && res.status === 'success') {
-                    showToast('Case saved successfully!');
-                } else {
-                    showToast('Save failed — please check the sheet.', false);
-                }
+                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!res?.status);
                 const dl = document.getElementById('inlineDoctorList');
                 if (dl) dl.remove();
                 init();
             };
-            paramObj.callback = cb;  // add callback to the object
-            const queryString = Object.entries(paramObj)
+        
+            const queryString = Object.entries(params)
                 .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
                 .join('&');
+            
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${queryString}`;
-            s.onerror = () => showToast('Network error — case not saved.', false);
             document.body.appendChild(s);
         }
 
@@ -399,14 +396,15 @@
                 <button class="btn btn-secondary ms-2" onclick="resetView()">Cancel</button>`;
         }
 
-         async function saveModalChanges() {
+        async function saveModalChanges() {
             const table = document.getElementById('detailsTable');
             function getVal(idx) {
                 const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
                 return el ? el.value : '';
             }
         
-            const params = new URLSearchParams({
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            const params = {
                 action:        'updateCase',
                 caseId:        currentCaseId,
                 source:        getVal(2),
@@ -421,27 +419,21 @@
                 pvg:           getVal(11),
                 doctor:        getVal(14),
                 hospital:      getVal(15),
-                notes:         getVal(17)
-            });
+                notes:         getVal(17),
+                callback:      cb
+            };
         
-            closeModal();
-        
-            const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => {
-                if (res && res.status === 'success') {
-                    showToast('Case saved successfully!');
-                } else {
-                    showToast('Save failed — please check the sheet.', false);
-                }
+                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!res?.status);
                 init();
             };
-            paramObj.callback = cb;  // add callback to the object
-            const queryString = Object.entries(paramObj)
+        
+            closeModal();
+            const queryString = Object.entries(params)
                 .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
                 .join('&');
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${queryString}`;
-            s.onerror = () => showToast('Network error — case not saved.', false);
             document.body.appendChild(s);
         }
 
