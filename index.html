@@ -514,7 +514,14 @@
 
             closeNewCaseModal();
             const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = () => { alert("Case added!"); init(); };
+            window[cb] = (res) => {
+                if (res && res.status === 'success') {
+                    showToast('New case added successfully!');
+                } else {
+                    showToast('Add failed — please check the sheet.', false);
+                }
+                init();
+            };
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
             document.body.appendChild(s);
