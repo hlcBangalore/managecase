@@ -17,8 +17,8 @@
             </thead>
             <tbody id="caseBody"></tbody>
         </table>
-        <button class="btn btn-primary mb-4" onclick="loadClosed()">Load Older Cases</button>
         <button class="btn btn-success mb-4 me-2" onclick="showNewCaseModal()">+ New Case</button>
+        <button class="btn btn-primary mb-4" onclick="loadClosed()">Load Older Cases</button>
     </div>
 
     <div class="modal fade" id="detailsModal" tabindex="-1">
@@ -337,6 +337,82 @@ async function saveModalChanges() {
     closeModal();
     await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
     alert("Saved!");
+
+function showNewCaseModal() {
+    // Populate HLC dropdowns
+    const hlcOptions = '<option value="">-- Select HLC --</option>' +
+        dropdownData.hlcs.map(h => `<option value="${h}">${h}</option>`).join('');
+    document.getElementById('nc_hlc').innerHTML = hlcOptions;
+    document.getElementById('nc_secondary_hlc').innerHTML = hlcOptions;
+
+    // Populate PVG dropdown
+    document.getElementById('nc_pvg').innerHTML = '<option value="">-- Select PVG --</option>' +
+        dropdownData.pvgs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    // Populate doctor datalist
+    document.getElementById('ncDoctorList').innerHTML =
+        dropdownData.doctors.map(d => `<option value="${d}">`).join('');
+
+    // Clear all text fields
+    ['nc_patient','nc_age','nc_country','nc_congregation',
+     'nc_diagnosis','nc_doctor','nc_hospital','nc_notes'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+
+    // Reset selects to first option
+    ['nc_sex','nc_source','nc_priority','nc_status','nc_stage'].forEach(id => {
+        document.getElementById(id).selectedIndex = 0;
+    });
+
+    new bootstrap.Modal(document.getElementById('newCaseModal')).show();
+}
+
+    function closeNewCaseModal() {
+        const modalEl = document.getElementById('newCaseModal');
+        let instance = bootstrap.Modal.getInstance(modalEl);
+        if (!instance) instance = new bootstrap.Modal(modalEl);
+        instance.hide();
+        modalEl.addEventListener('hidden.bs.modal', function handler() {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            modalEl.removeEventListener('hidden.bs.modal', handler);
+        }, { once: true });
+    }
+    
+    async function saveNewCase() {
+        const patient = document.getElementById('nc_patient').value.trim();
+        if (!patient) { alert("Patient name is required."); return; }
+    
+        const params = new URLSearchParams({
+            action:        'addCase',
+            patient:       patient,
+            age:           document.getElementById('nc_age').value.trim(),
+            sex:           document.getElementById('nc_sex').value,
+            country:       document.getElementById('nc_country').value.trim(),
+            congregation:  document.getElementById('nc_congregation').value.trim(),
+            source:        document.getElementById('nc_source').value,
+            priority:      document.getElementById('nc_priority').value,
+            diagnosis:     document.getElementById('nc_diagnosis').value.trim(),
+            status:        document.getElementById('nc_status').value,
+            stage:         document.getElementById('nc_stage').value,
+            hlc:           document.getElementById('nc_hlc').value,
+            secondary_hlc: document.getElementById('nc_secondary_hlc').value,
+            pvg:           document.getElementById('nc_pvg').value,
+            doctor:        document.getElementById('nc_doctor').value.trim(),
+            hospital:      document.getElementById('nc_hospital').value.trim(),
+            notes:         document.getElementById('nc_notes').value.trim()
+        });
+    
+        closeNewCaseModal();
+        const cb = 'cb_' + Math.round(100000 * Math.random());
+        window[cb] = () => { alert("Case added!"); init(); };
+        const s = document.createElement('script');
+        s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+        document.body.appendChild(s);
+    }
+
     init();
 }
 function closeModal() {
@@ -360,6 +436,78 @@ function closeModal() {
         
         init();
     </script>
+    <div class="modal fade" id="newCaseModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content p-4">
+                <h5 class="mb-3">New Case</h5>
+                <table class="table table-bordered">
+                    <tr><th>Patient Name</th><td><input class="form-control" id="nc_patient" placeholder="Full name"></td></tr>
+                    <tr><th>Age</th><td><input class="form-control" id="nc_age" type="number" placeholder="Age"></td></tr>
+                    <tr><th>Sex</th><td>
+                        <select class="form-control" id="nc_sex">
+                            <option value="">-- Select --</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Country</th><td><input class="form-control" id="nc_country" placeholder="Country"></td></tr>
+                    <tr><th>Congregation</th><td><input class="form-control" id="nc_congregation" placeholder="Congregation"></td></tr>
+                    <tr><th>Source</th><td>
+                        <select class="form-control" id="nc_source">
+                            <option value="HID">HID</option>
+                            <option value="GHCO">GHCO</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Priority</th><td>
+                        <select class="form-control" id="nc_priority">
+                            <option value="Normal">Normal</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Diagnosis</th><td><input class="form-control" id="nc_diagnosis" placeholder="Diagnosis"></td></tr>
+                    <tr><th>Status</th><td>
+                        <select class="form-control" id="nc_status">
+                            <option value="New">New</option>
+                            <option value="In Process">In Process</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Stage</th><td>
+                        <select class="form-control" id="nc_stage">
+                            <option value="Quote">Quote</option>
+                            <option value="Treatment">Treatment</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Primary HLC</th><td>
+                        <select class="form-control" id="nc_hlc">
+                            <option value="">-- Select HLC --</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Secondary HLC</th><td>
+                        <select class="form-control" id="nc_secondary_hlc">
+                            <option value="">-- Select HLC --</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>PVG</th><td>
+                        <select class="form-control" id="nc_pvg">
+                            <option value="">-- Select PVG --</option>
+                        </select>
+                    </td></tr>
+                    <tr><th>Treating Doctor</th><td>
+                        <input class="form-control" id="nc_doctor" list="ncDoctorList"
+                               autocomplete="off" placeholder="Type or select a doctor...">
+                        <datalist id="ncDoctorList"></datalist>
+                    </td></tr>
+                    <tr><th>Hospital</th><td><input class="form-control" id="nc_hospital" placeholder="Hospital"></td></tr>
+                    <tr><th>Notes</th><td><textarea class="form-control" id="nc_notes" rows="2" placeholder="Notes"></textarea></td></tr>
+                </table>
+                <div>
+                    <button class="btn btn-success me-2" onclick="saveNewCase()">Save</button>
+                    <button class="btn btn-secondary" onclick="closeNewCaseModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
