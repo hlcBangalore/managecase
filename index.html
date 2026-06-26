@@ -436,6 +436,9 @@
         }
 
         function closeModal() {
+            // Blur focused element before hiding to prevent aria-hidden warning
+            if (document.activeElement) document.activeElement.blur();
+            
             const modalEl = document.getElementById('detailsModal');
             let modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
@@ -475,6 +478,9 @@
         }
 
         function closeNewCaseModal() {
+            // Blur focused element before hiding to prevent aria-hidden warning
+            if (document.activeElement) document.activeElement.blur();
+        
             const modalEl = document.getElementById('newCaseModal');
             let instance = bootstrap.Modal.getInstance(modalEl);
             if (!instance) instance = new bootstrap.Modal(modalEl);
