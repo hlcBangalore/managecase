@@ -21,6 +21,7 @@
         <button class="btn btn-primary mb-4" onclick="loadClosed()">Load Older Cases</button>
     </div>
 
+    <!-- Details Modal -->
     <div class="modal fade" id="detailsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content p-4">
@@ -30,412 +31,7 @@
         </div>
     </div>
 
-    <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
-        let cachedData = [], currentMonths = 0, currentCaseId = "", dropdownData = { hlcs: [], pvgs: [], doctors: [] };
-
-        async function init(m = 0) {
-            const cb = 'cb_' + Math.round(100000 * Math.random());
-            window[cb] = (res) => { 
-                cachedData = (m === 0) ? res.data : cachedData.slice(0, 1).concat(cachedData.slice(1).concat(res.data.slice(1)));
-                dropdownData = res.dropdowns || { hlcs: [], pvgs: [] };
-                renderTable(); 
-            };
-            const s = document.createElement('script');
-            s.src = `${SCRIPT_URL}?action=getCases&months=${m}&callback=${cb}`;
-            document.body.appendChild(s);
-        }
-
-        function renderTable() {
-            const filter = document.getElementById("searchInput").value.toLowerCase();
-            const tbody = document.getElementById('caseBody');
-            const order = { "New": 1, "In Process": 2, "Closed": 3 };
-            let sortedData = cachedData.slice(1).filter(row => row.some(c => String(c).toLowerCase().includes(filter)))
-                             .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
-            tbody.innerHTML = '';
-            sortedData.forEach(row => {
-                tbody.innerHTML += `<tr id="row-${row[0]}">
-                    <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
-                    <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
-                    <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary me-1" onclick="editInline('${row[0]}')">Edit</button>
-                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
-                    </td>
-                </tr>`;
-            });
-        }
-
-        function editInline(id) {
-            const row = document.getElementById(`row-${id}`);
-            const cells = row.querySelectorAll('td');
-            
-            // Store original text values for cancel
-            row.dataset.original = JSON.stringify(Array.from(cells).map(c => c.innerText));
-        
-            // Col indices in the table: 0=ID, 1=Patient, 2=Country, 3=Congregation, 
-            //                           4=Diagnosis, 5=Stage, 6=Status, 7=HLC, 8=PVG, 9=Doctor, 10=Hospital
-        
-            // Patient
-            cells[1].innerHTML = `<input class="form-control form-control-sm" value="${cells[1].innerText.replace(/"/g, '&quot;')}">`;
-            // Country
-            cells[2].innerHTML = `<input class="form-control form-control-sm" value="${cells[2].innerText.replace(/"/g, '&quot;')}">`;
-            // Congregation
-            cells[3].innerHTML = `<input class="form-control form-control-sm" value="${cells[3].innerText.replace(/"/g, '&quot;')}">`;
-            // Diagnosis
-            cells[4].innerHTML = `<input class="form-control form-control-sm" value="${cells[4].innerText.replace(/"/g, '&quot;')}">`;
-            // Stage
-            cells[5].innerHTML = `<input class="form-control form-control-sm" value="${cells[5].innerText.replace(/"/g, '&quot;')}">`;
-        
-            // Status — dropdown
-            const curStatus = cells[6].innerText.trim();
-            cells[6].innerHTML = `<select class="form-control form-control-sm">
-                ${["New","In Process","Closed"].map(s => 
-                    `<option value="${s}" ${s === curStatus ? 'selected' : ''}>${s}</option>`
-                ).join('')}
-            </select>`;
-        
-            // Primary HLC — dropdown
-            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-            const curHLC = cells[7].innerText.trim();
-            cells[7].innerHTML = `<select class="form-control form-control-sm">
-                <option value="">-- HLC --</option>
-                ${dropdownData.hlcs.map(h => 
-                    `<option value="${h}" ${normalize(h) === normalize(curHLC) ? 'selected' : ''}>${h}</option>`
-                ).join('')}
-            </select>`;
-        
-            // PVG — dropdown
-            const curPVG = cells[8].innerText.trim();
-            cells[8].innerHTML = `<select class="form-control form-control-sm">
-                <option value="">-- PVG --</option>
-                ${dropdownData.pvgs.map(p => 
-                    `<option value="${p}" ${normalize(p) === normalize(curPVG) ? 'selected' : ''}>${p}</option>`
-                ).join('')}
-            </select>`;
-        
-            // Doctor — datalist (free text + suggestions)
-            const existingDL = document.getElementById('inlineDoctorList');
-            if (existingDL) existingDL.remove();
-            const datalist = document.createElement('datalist');
-            datalist.id = 'inlineDoctorList';
-            dropdownData.doctors.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d;
-                datalist.appendChild(opt);
-            });
-            document.body.appendChild(datalist);
-            const curDoctor = cells[9].innerText.trim();
-            cells[9].innerHTML = `<input class="form-control form-control-sm" 
-                                         value="${curDoctor.replace(/"/g, '&quot;')}" 
-                                         list="inlineDoctorList" 
-                                         autocomplete="off"
-                                         placeholder="Doctor...">`;
-        
-            // Hospital
-            cells[10].innerHTML = `<input class="form-control form-control-sm" value="${cells[10].innerText.replace(/"/g, '&quot;')}">`;
-        
-            // Action buttons
-            cells[11].innerHTML = `<div class="btn-group">
-                <button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button>
-                <button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button>
-            </div>`;
-        }
-        
-        function cancelInline(id) {
-            const row = document.getElementById(`row-${id}`);
-            const original = JSON.parse(row.dataset.original);
-            const cells = row.querySelectorAll('td');
-            for (let i = 1; i < 11; i++) cells[i].innerText = original[i];
-            cells[11].innerHTML = `
-                <button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button>
-                <button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
-            // Clean up inline datalist
-            const dl = document.getElementById('inlineDoctorList');
-            if (dl) dl.remove();
-        }
-
-        async function saveInline(id) {
-            // Use querySelector with attribute selector to avoid hyphen issues
-            const row = document.querySelector(`tr[id="row-${id}"]`);
-            if (!row) { console.error("Row not found for id:", id); return; }
-            
-            const cells = row.querySelectorAll('td');
-            console.log("Cells found:", cells.length); // Should be 12
-        
-            const getCell = (i) => {
-                const el = cells[i].querySelector('input, select');
-                return el ? el.value : '';
-            };
-        
-            const params = new URLSearchParams({ 
-                action:       'updateCase', 
-                caseId:       id, 
-                patient:      getCell(1), 
-                country:      getCell(2), 
-                congregation: getCell(3), 
-                diagnosis:    getCell(4), 
-                stage:        getCell(5), 
-                status:       getCell(6), 
-                hlc:          getCell(7), 
-                pvg:          getCell(8), 
-                doctor:       getCell(9), 
-                hospital:     getCell(10)
-            });
-        
-            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-            const dl = document.getElementById('inlineDoctorList');
-            if (dl) dl.remove();
-            init();
-        }        
-
-
-function showDetails(id) {
-    currentCaseId = id;
-    const row = cachedData.find(r => r[0] === id);
-    const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", 
-                     "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", 
-                     "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
-    
-    let html = `<table class="table table-bordered" id="detailsTable">`;
-    headers.forEach((h, idx) => {
-        // Use encodeURIComponent to safely store any value in data-value
-        const cellVal = row[idx] !== undefined ? String(row[idx]) : '';
-        html += `<tr>
-            <th>${h}</th>
-            <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">${cellVal}</td>
-        </tr>`;
-    });
-    html += `</table>
-    <div id="modalActions">
-        <button class="btn btn-primary" onclick="toggleEdit()">Edit</button> 
-        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
-    </div>`;
-    document.getElementById('detailsContent').innerHTML = html;
-const modal = new bootstrap.Modal(document.getElementById('detailsModal'), { backdrop: true, keyboard: true });
-modal.show();
-}
-
-function toggleEdit() {
-    const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country", 
-                     "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG", 
-                     "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
-
-    // Scope all queries to detailsContent to avoid any document-level conflicts
-    const container = document.getElementById('detailsContent');
-
-    container.querySelectorAll('.cell-val').forEach((cell) => {
-        const idx = parseInt(cell.getAttribute('data-idx'));
-        const val = decodeURIComponent(cell.getAttribute('data-value') || '').trim();
-        const headerName = headers[idx];
-
-        if (headerName === "Case_ID" || headerName === "Date" || headerName === "Source") {
-            cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}" readonly>`;
-        } 
-        else if (headerName === "Primary_HLC" || headerName === "Secondary_HLC") {
-            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-            cell.innerHTML = `<select class="form-control">
-                <option value="">-- Select HLC --</option>
-                ${dropdownData.hlcs.map(h => 
-                    `<option value="${h}" ${normalize(h) === normalize(val) ? 'selected' : ''}>${h}</option>`
-                ).join('')}
-            </select>`;
-        } 
-        else if (headerName === "PVG") {
-            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-            cell.innerHTML = `<select class="form-control">
-                <option value="">-- Select PVG --</option>
-                ${dropdownData.pvgs.map(p => 
-                    `<option value="${p}" ${normalize(p) === normalize(val) ? 'selected' : ''}>${p}</option>`
-                ).join('')}
-            </select>`;
-        } 
-        else if (headerName === "Status") {
-            const statuses = ["New", "In Process", "Closed"];
-            cell.innerHTML = `<select class="form-control">
-                ${statuses.map(s => 
-                    `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
-                ).join('')}
-            </select>`;
-        }
-        else if (headerName === "Priority") {
-            const priorities = ["Normal", "Urgent"];
-            cell.innerHTML = `<select class="form-control">
-                ${priorities.map(p => 
-                    `<option value="${p}" ${p === val ? 'selected' : ''}>${p}</option>`
-                ).join('')}
-            </select>`;
-        }
-        else if (headerName === "Workflow_Stage") {
-            const stages = ["Quote", "Treatment"];
-            cell.innerHTML = `<select class="form-control">
-                ${stages.map(s => 
-                    `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
-                ).join('')}
-            </select>`;
-        }
-        else if (headerName === "Treating_Dr") {
-            // Remove any existing datalist first to avoid duplicates
-            const existing = document.getElementById('doctorList');
-            if (existing) existing.remove();
-        
-            // Append datalist to modal content div, NOT inside the table cell
-            const datalist = document.createElement('datalist');
-            datalist.id = 'doctorList';
-            dropdownData.doctors.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d;
-                datalist.appendChild(opt);
-            });
-            document.getElementById('detailsContent').appendChild(datalist);
-        
-            // Input just references the datalist by id
-            cell.innerHTML = `<input class="form-control" 
-                                     id="treatingDrInput"
-                                     value="${val.replace(/"/g, '&quot;')}" 
-                                     list="doctorList" 
-                                     autocomplete="off"
-                                     placeholder="Type or select a doctor...">`;
-        }
-        else {
-            cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}">`;
-        }
-    });
-
-    // Scope modalActions lookup to container too
-    container.querySelector('#modalActions').innerHTML = `
-        <button class="btn btn-success me-2" onclick="saveModalChanges()">Save</button> 
-        <button class="btn btn-secondary" onclick="resetView()">Cancel</button>`;
-}
-
-async function saveModalChanges() {
-    const table = document.getElementById('detailsTable');
-
-    // Helper: get value by data-idx
-    function getVal(idx) {
-        const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
-        return el ? el.value : '';
-    }
-
-    const params = new URLSearchParams({
-        action:        'updateCase',
-        caseId:        currentCaseId,
-        patient:       getVal(3),
-        country:       getVal(6),
-        congregation:  getVal(7),
-        diagnosis:     getVal(12),
-        stage:         getVal(16),
-        status:        getVal(13),
-        hlc:           getVal(9),   // Primary_HLC  → col J
-        secondary_hlc: getVal(10),  // Secondary_HLC → col K
-        pvg:           getVal(11),  // PVG           → col L
-        doctor:        getVal(14),
-        hospital:      getVal(15),
-        notes:         getVal(17)
-    });
-
-    closeModal();
-    await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
-    alert("Saved!");
-
-function showNewCaseModal() {
-    // Populate HLC dropdowns
-    const hlcOptions = '<option value="">-- Select HLC --</option>' +
-        dropdownData.hlcs.map(h => `<option value="${h}">${h}</option>`).join('');
-    document.getElementById('nc_hlc').innerHTML = hlcOptions;
-    document.getElementById('nc_secondary_hlc').innerHTML = hlcOptions;
-
-    // Populate PVG dropdown
-    document.getElementById('nc_pvg').innerHTML = '<option value="">-- Select PVG --</option>' +
-        dropdownData.pvgs.map(p => `<option value="${p}">${p}</option>`).join('');
-
-    // Populate doctor datalist
-    document.getElementById('ncDoctorList').innerHTML =
-        dropdownData.doctors.map(d => `<option value="${d}">`).join('');
-
-    // Clear all text fields
-    ['nc_patient','nc_age','nc_country','nc_congregation',
-     'nc_diagnosis','nc_doctor','nc_hospital','nc_notes'].forEach(id => {
-        document.getElementById(id).value = '';
-    });
-
-    // Reset selects to first option
-    ['nc_sex','nc_source','nc_priority','nc_status','nc_stage'].forEach(id => {
-        document.getElementById(id).selectedIndex = 0;
-    });
-
-    new bootstrap.Modal(document.getElementById('newCaseModal')).show();
-}
-
-    function closeNewCaseModal() {
-        const modalEl = document.getElementById('newCaseModal');
-        let instance = bootstrap.Modal.getInstance(modalEl);
-        if (!instance) instance = new bootstrap.Modal(modalEl);
-        instance.hide();
-        modalEl.addEventListener('hidden.bs.modal', function handler() {
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.removeProperty('overflow');
-            document.body.style.removeProperty('padding-right');
-            modalEl.removeEventListener('hidden.bs.modal', handler);
-        }, { once: true });
-    }
-    
-    async function saveNewCase() {
-        const patient = document.getElementById('nc_patient').value.trim();
-        if (!patient) { alert("Patient name is required."); return; }
-    
-        const params = new URLSearchParams({
-            action:        'addCase',
-            patient:       patient,
-            age:           document.getElementById('nc_age').value.trim(),
-            sex:           document.getElementById('nc_sex').value,
-            country:       document.getElementById('nc_country').value.trim(),
-            congregation:  document.getElementById('nc_congregation').value.trim(),
-            source:        document.getElementById('nc_source').value,
-            priority:      document.getElementById('nc_priority').value,
-            diagnosis:     document.getElementById('nc_diagnosis').value.trim(),
-            status:        document.getElementById('nc_status').value,
-            stage:         document.getElementById('nc_stage').value,
-            hlc:           document.getElementById('nc_hlc').value,
-            secondary_hlc: document.getElementById('nc_secondary_hlc').value,
-            pvg:           document.getElementById('nc_pvg').value,
-            doctor:        document.getElementById('nc_doctor').value.trim(),
-            hospital:      document.getElementById('nc_hospital').value.trim(),
-            notes:         document.getElementById('nc_notes').value.trim()
-        });
-    
-        closeNewCaseModal();
-        const cb = 'cb_' + Math.round(100000 * Math.random());
-        window[cb] = () => { alert("Case added!"); init(); };
-        const s = document.createElement('script');
-        s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
-        document.body.appendChild(s);
-    }
-
-    init();
-}
-function closeModal() {
-    const modalEl = document.getElementById('detailsModal');
-    let modalInstance = bootstrap.Modal.getInstance(modalEl);
-    if (!modalInstance) {
-        modalInstance = new bootstrap.Modal(modalEl);
-    }
-    modalInstance.hide();
-    // Force cleanup in case backdrop lingers
-    modalEl.addEventListener('hidden.bs.modal', function handler() {
-        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('overflow');
-        document.body.style.removeProperty('padding-right');
-        modalEl.removeEventListener('hidden.bs.modal', handler);
-    }, { once: true });
-}
-        function resetView() { showDetails(currentCaseId); }
-        function loadClosed() { init(currentMonths += 2); }
-        
-        init();
-    </script>
+    <!-- New Case Modal -->
     <div class="modal fade" id="newCaseModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content p-4">
@@ -508,6 +104,400 @@ function closeModal() {
             </div>
         </div>
     </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxDDHUbYjX8ktsLr9TYvF_eDRgjhW9IOmSzVzn-QSHCzPPG223akAMSroCE7zrT0RK0rg/exec";
+        let cachedData = [], currentMonths = 0, currentCaseId = "", dropdownData = { hlcs: [], pvgs: [], doctors: [] };
+
+        // ── INIT & RENDER ──────────────────────────────────────────────
+
+        async function init(m = 0) {
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            window[cb] = (res) => {
+                cachedData = (m === 0) ? res.data : cachedData.slice(0, 1).concat(cachedData.slice(1).concat(res.data.slice(1)));
+                dropdownData = res.dropdowns || { hlcs: [], pvgs: [], doctors: [] };
+                renderTable();
+            };
+            const s = document.createElement('script');
+            s.src = `${SCRIPT_URL}?action=getCases&months=${m}&callback=${cb}`;
+            document.body.appendChild(s);
+        }
+
+        function renderTable() {
+            const filter = document.getElementById("searchInput").value.toLowerCase();
+            const tbody = document.getElementById('caseBody');
+            const order = { "New": 1, "In Process": 2, "Closed": 3 };
+            let sortedData = cachedData.slice(1)
+                .filter(row => row.some(c => String(c).toLowerCase().includes(filter)))
+                .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
+            tbody.innerHTML = '';
+            sortedData.forEach(row => {
+                tbody.innerHTML += `<tr id="row-${row[0]}">
+                    <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
+                    <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
+                    <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary me-1" onclick="editInline('${row[0]}')">Edit</button>
+                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        // ── INLINE EDIT ────────────────────────────────────────────────
+
+        function editInline(id) {
+            const row = document.getElementById(`row-${id}`);
+            const cells = row.querySelectorAll('td');
+
+            row.dataset.original = JSON.stringify(Array.from(cells).map(c => c.innerText));
+
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+            // Patient
+            cells[1].innerHTML = `<input class="form-control form-control-sm" value="${cells[1].innerText.replace(/"/g, '&quot;')}">`;
+            // Country
+            cells[2].innerHTML = `<input class="form-control form-control-sm" value="${cells[2].innerText.replace(/"/g, '&quot;')}">`;
+            // Congregation
+            cells[3].innerHTML = `<input class="form-control form-control-sm" value="${cells[3].innerText.replace(/"/g, '&quot;')}">`;
+            // Diagnosis
+            cells[4].innerHTML = `<input class="form-control form-control-sm" value="${cells[4].innerText.replace(/"/g, '&quot;')}">`;
+
+            // Stage — dropdown
+            const curStage = cells[5].innerText.trim();
+            cells[5].innerHTML = `<select class="form-control form-control-sm">
+                ${["Quote","Treatment"].map(s =>
+                    `<option value="${s}" ${s === curStage ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+            </select>`;
+
+            // Status — dropdown
+            const curStatus = cells[6].innerText.trim();
+            cells[6].innerHTML = `<select class="form-control form-control-sm">
+                ${["New","In Process","Closed"].map(s =>
+                    `<option value="${s}" ${s === curStatus ? 'selected' : ''}>${s}</option>`
+                ).join('')}
+            </select>`;
+
+            // Primary HLC — dropdown
+            const curHLC = cells[7].innerText.trim();
+            cells[7].innerHTML = `<select class="form-control form-control-sm">
+                <option value="">-- HLC --</option>
+                ${dropdownData.hlcs.map(h =>
+                    `<option value="${h}" ${normalize(h) === normalize(curHLC) ? 'selected' : ''}>${h}</option>`
+                ).join('')}
+            </select>`;
+
+            // PVG — dropdown
+            const curPVG = cells[8].innerText.trim();
+            cells[8].innerHTML = `<select class="form-control form-control-sm">
+                <option value="">-- PVG --</option>
+                ${dropdownData.pvgs.map(p =>
+                    `<option value="${p}" ${normalize(p) === normalize(curPVG) ? 'selected' : ''}>${p}</option>`
+                ).join('')}
+            </select>`;
+
+            // Doctor — datalist
+            const existingDL = document.getElementById('inlineDoctorList');
+            if (existingDL) existingDL.remove();
+            const datalist = document.createElement('datalist');
+            datalist.id = 'inlineDoctorList';
+            dropdownData.doctors.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                datalist.appendChild(opt);
+            });
+            document.body.appendChild(datalist);
+            const curDoctor = cells[9].innerText.trim();
+            cells[9].innerHTML = `<input class="form-control form-control-sm"
+                                         value="${curDoctor.replace(/"/g, '&quot;')}"
+                                         list="inlineDoctorList"
+                                         autocomplete="off"
+                                         placeholder="Doctor...">`;
+
+            // Hospital
+            cells[10].innerHTML = `<input class="form-control form-control-sm" value="${cells[10].innerText.replace(/"/g, '&quot;')}">`;
+
+            // Action buttons
+            cells[11].innerHTML = `<div class="btn-group">
+                <button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button>
+            </div>`;
+        }
+
+        function cancelInline(id) {
+            const row = document.querySelector(`tr[id="row-${id}"]`);
+            const original = JSON.parse(row.dataset.original);
+            const cells = row.querySelectorAll('td');
+            for (let i = 1; i < 11; i++) cells[i].innerText = original[i];
+            cells[11].innerHTML = `
+                <button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button>
+                <button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
+            const dl = document.getElementById('inlineDoctorList');
+            if (dl) dl.remove();
+        }
+
+        async function saveInline(id) {
+            const row = document.querySelector(`tr[id="row-${id}"]`);
+            if (!row) { console.error("Row not found for id:", id); return; }
+
+            const cells = row.querySelectorAll('td');
+            const getCell = (i) => {
+                const el = cells[i].querySelector('input, select');
+                return el ? el.value : '';
+            };
+
+            const params = new URLSearchParams({
+                action:       'updateCase',
+                caseId:       id,
+                patient:      getCell(1),
+                country:      getCell(2),
+                congregation: getCell(3),
+                diagnosis:    getCell(4),
+                stage:        getCell(5),
+                status:       getCell(6),
+                hlc:          getCell(7),
+                pvg:          getCell(8),
+                doctor:       getCell(9),
+                hospital:     getCell(10)
+            });
+
+            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
+            const dl = document.getElementById('inlineDoctorList');
+            if (dl) dl.remove();
+            init();
+        }
+
+        // ── DETAILS MODAL ──────────────────────────────────────────────
+
+        function showDetails(id) {
+            currentCaseId = id;
+            const row = cachedData.find(r => r[0] === id);
+            const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
+                             "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+
+            let html = `<table class="table table-bordered" id="detailsTable">`;
+            headers.forEach((h, idx) => {
+                const cellVal = row[idx] !== undefined ? String(row[idx]) : '';
+                html += `<tr>
+                    <th>${h}</th>
+                    <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">${cellVal}</td>
+                </tr>`;
+            });
+            html += `</table>
+            <div id="modalActions">
+                <button class="btn btn-primary" onclick="toggleEdit()">Edit</button>
+                <button class="btn btn-secondary ms-2" onclick="closeModal()">Close</button>
+            </div>`;
+            document.getElementById('detailsContent').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('detailsModal'), { backdrop: true, keyboard: true });
+            modal.show();
+        }
+
+        function toggleEdit() {
+            const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
+                             "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+
+            const container = document.getElementById('detailsContent');
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+            container.querySelectorAll('.cell-val').forEach((cell) => {
+                const idx = parseInt(cell.getAttribute('data-idx'));
+                const val = decodeURIComponent(cell.getAttribute('data-value') || '').trim();
+                const headerName = headers[idx];
+
+                if (headerName === "Case_ID" || headerName === "Date" || headerName === "Source") {
+                    cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}" readonly>`;
+                }
+                else if (headerName === "Primary_HLC" || headerName === "Secondary_HLC") {
+                    cell.innerHTML = `<select class="form-control">
+                        <option value="">-- Select HLC --</option>
+                        ${dropdownData.hlcs.map(h =>
+                            `<option value="${h}" ${normalize(h) === normalize(val) ? 'selected' : ''}>${h}</option>`
+                        ).join('')}
+                    </select>`;
+                }
+                else if (headerName === "PVG") {
+                    cell.innerHTML = `<select class="form-control">
+                        <option value="">-- Select PVG --</option>
+                        ${dropdownData.pvgs.map(p =>
+                            `<option value="${p}" ${normalize(p) === normalize(val) ? 'selected' : ''}>${p}</option>`
+                        ).join('')}
+                    </select>`;
+                }
+                else if (headerName === "Status") {
+                    cell.innerHTML = `<select class="form-control">
+                        ${["New","In Process","Closed"].map(s =>
+                            `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
+                        ).join('')}
+                    </select>`;
+                }
+                else if (headerName === "Priority") {
+                    cell.innerHTML = `<select class="form-control">
+                        ${["Normal","Urgent"].map(p =>
+                            `<option value="${p}" ${p === val ? 'selected' : ''}>${p}</option>`
+                        ).join('')}
+                    </select>`;
+                }
+                else if (headerName === "Workflow_Stage") {
+                    cell.innerHTML = `<select class="form-control">
+                        ${["Quote","Treatment"].map(s =>
+                            `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
+                        ).join('')}
+                    </select>`;
+                }
+                else if (headerName === "Treating_Dr") {
+                    const existing = document.getElementById('doctorList');
+                    if (existing) existing.remove();
+                    const datalist = document.createElement('datalist');
+                    datalist.id = 'doctorList';
+                    dropdownData.doctors.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        datalist.appendChild(opt);
+                    });
+                    document.getElementById('detailsContent').appendChild(datalist);
+                    cell.innerHTML = `<input class="form-control"
+                                             id="treatingDrInput"
+                                             value="${val.replace(/"/g, '&quot;')}"
+                                             list="doctorList"
+                                             autocomplete="off"
+                                             placeholder="Type or select a doctor...">`;
+                }
+                else {
+                    cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}">`;
+                }
+            });
+
+            container.querySelector('#modalActions').innerHTML = `
+                <button class="btn btn-success" onclick="saveModalChanges()">Save</button>
+                <button class="btn btn-secondary ms-2" onclick="resetView()">Cancel</button>`;
+        }
+
+        async function saveModalChanges() {
+            const table = document.getElementById('detailsTable');
+            function getVal(idx) {
+                const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
+                return el ? el.value : '';
+            }
+
+            const params = new URLSearchParams({
+                action:        'updateCase',
+                caseId:        currentCaseId,
+                patient:       getVal(3),
+                country:       getVal(6),
+                congregation:  getVal(7),
+                diagnosis:     getVal(12),
+                stage:         getVal(16),
+                status:        getVal(13),
+                hlc:           getVal(9),
+                secondary_hlc: getVal(10),
+                pvg:           getVal(11),
+                doctor:        getVal(14),
+                hospital:      getVal(15),
+                notes:         getVal(17)
+            });
+
+            closeModal();
+            await fetch(`${SCRIPT_URL}?${params.toString()}&callback=cb`);
+            alert("Saved!");
+            init();
+        }
+
+        function closeModal() {
+            const modalEl = document.getElementById('detailsModal');
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
+            modalInstance.hide();
+            modalEl.addEventListener('hidden.bs.modal', function handler() {
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+                modalEl.removeEventListener('hidden.bs.modal', handler);
+            }, { once: true });
+        }
+
+        // ── NEW CASE MODAL ─────────────────────────────────────────────
+
+        function showNewCaseModal() {
+            const hlcOptions = '<option value="">-- Select HLC --</option>' +
+                dropdownData.hlcs.map(h => `<option value="${h}">${h}</option>`).join('');
+            document.getElementById('nc_hlc').innerHTML = hlcOptions;
+            document.getElementById('nc_secondary_hlc').innerHTML = hlcOptions;
+
+            document.getElementById('nc_pvg').innerHTML = '<option value="">-- Select PVG --</option>' +
+                dropdownData.pvgs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            document.getElementById('ncDoctorList').innerHTML =
+                dropdownData.doctors.map(d => `<option value="${d}">`).join('');
+
+            ['nc_patient','nc_age','nc_country','nc_congregation',
+             'nc_diagnosis','nc_doctor','nc_hospital','nc_notes'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            ['nc_sex','nc_source','nc_priority','nc_status','nc_stage'].forEach(id => {
+                document.getElementById(id).selectedIndex = 0;
+            });
+
+            new bootstrap.Modal(document.getElementById('newCaseModal')).show();
+        }
+
+        function closeNewCaseModal() {
+            const modalEl = document.getElementById('newCaseModal');
+            let instance = bootstrap.Modal.getInstance(modalEl);
+            if (!instance) instance = new bootstrap.Modal(modalEl);
+            instance.hide();
+            modalEl.addEventListener('hidden.bs.modal', function handler() {
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+                modalEl.removeEventListener('hidden.bs.modal', handler);
+            }, { once: true });
+        }
+
+        async function saveNewCase() {
+            const patient = document.getElementById('nc_patient').value.trim();
+            if (!patient) { alert("Patient name is required."); return; }
+
+            const params = new URLSearchParams({
+                action:        'addCase',
+                patient:       patient,
+                age:           document.getElementById('nc_age').value.trim(),
+                sex:           document.getElementById('nc_sex').value,
+                country:       document.getElementById('nc_country').value.trim(),
+                congregation:  document.getElementById('nc_congregation').value.trim(),
+                source:        document.getElementById('nc_source').value,
+                priority:      document.getElementById('nc_priority').value,
+                diagnosis:     document.getElementById('nc_diagnosis').value.trim(),
+                status:        document.getElementById('nc_status').value,
+                stage:         document.getElementById('nc_stage').value,
+                hlc:           document.getElementById('nc_hlc').value,
+                secondary_hlc: document.getElementById('nc_secondary_hlc').value,
+                pvg:           document.getElementById('nc_pvg').value,
+                doctor:        document.getElementById('nc_doctor').value.trim(),
+                hospital:      document.getElementById('nc_hospital').value.trim(),
+                notes:         document.getElementById('nc_notes').value.trim()
+            });
+
+            closeNewCaseModal();
+            const cb = 'cb_' + Math.round(100000 * Math.random());
+            window[cb] = () => { alert("Case added!"); init(); };
+            const s = document.createElement('script');
+            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            document.body.appendChild(s);
+        }
+
+        // ── MISC ───────────────────────────────────────────────────────
+
+        function resetView() { showDetails(currentCaseId); }
+        function loadClosed() { init(currentMonths += 2); }
+
+        init();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
