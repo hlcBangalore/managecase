@@ -266,9 +266,9 @@
             const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => {
                 if (res && res.status === 'success') {
-                    alert("Saved!");
+                    showToast('Case saved successfully!');
                 } else {
-                    alert("Save may have failed. Please check the sheet.");
+                    showToast('Save failed — please check the sheet.', false);
                 }
                 const dl = document.getElementById('inlineDoctorList');
                 if (dl) dl.remove();
@@ -394,7 +394,7 @@
                 <button class="btn btn-secondary ms-2" onclick="resetView()">Cancel</button>`;
         }
 
-        async function saveModalChanges() {
+         async function saveModalChanges() {
             const table = document.getElementById('detailsTable');
             function getVal(idx) {
                 const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
@@ -420,12 +420,13 @@
             });
         
             closeModal();
+        
             const cb = 'cb_' + Math.round(100000 * Math.random());
             window[cb] = (res) => {
                 if (res && res.status === 'success') {
-                    alert("Saved!");
+                    showToast('Case saved successfully!');
                 } else {
-                    alert("Save may have failed. Please check the sheet.");
+                    showToast('Save failed — please check the sheet.', false);
                 }
                 init();
             };
@@ -519,6 +520,16 @@
             document.body.appendChild(s);
         }
 
+        function showToast(message, success = true) {
+            const toastEl = document.getElementById('saveToast');
+            const toastMsg = document.getElementById('toastMessage');
+            toastMsg.innerText = message;
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(success ? 'bg-success' : 'bg-danger');
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
+        }
+        
         // ── MISC ───────────────────────────────────────────────────────
 
         function resetView() { showDetails(currentCaseId); }
@@ -527,5 +538,13 @@
         init();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+        <div id="saveToast" class="toast align-items-center text-white bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">Saved successfully!</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
