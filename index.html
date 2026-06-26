@@ -274,8 +274,13 @@
                 if (dl) dl.remove();
                 init();
             };
+            paramObj.callback = cb;  // add callback to the object
+            const queryString = Object.entries(paramObj)
+                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+                .join('&');
             const s = document.createElement('script');
-            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            s.src = `${SCRIPT_URL}?${queryString}`;
+            s.onerror = () => showToast('Network error — case not saved.', false);
             document.body.appendChild(s);
         }
 
@@ -430,8 +435,13 @@
                 }
                 init();
             };
+            paramObj.callback = cb;  // add callback to the object
+            const queryString = Object.entries(paramObj)
+                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+                .join('&');
             const s = document.createElement('script');
-            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            s.src = `${SCRIPT_URL}?${queryString}`;
+            s.onerror = () => showToast('Network error — case not saved.', false);
             document.body.appendChild(s);
         }
 
@@ -497,8 +507,9 @@
         async function saveNewCase() {
             const patient = document.getElementById('nc_patient').value.trim();
             if (!patient) { alert("Patient name is required."); return; }
-
-            const params = new URLSearchParams({
+        
+            // Build params object first
+            const paramObj = {
                 action:        'addCase',
                 patient:       patient,
                 age:           document.getElementById('nc_age').value.trim(),
@@ -516,10 +527,18 @@
                 doctor:        document.getElementById('nc_doctor').value.trim(),
                 hospital:      document.getElementById('nc_hospital').value.trim(),
                 notes:         document.getElementById('nc_notes').value.trim()
-            });
-
-            closeNewCaseModal();
+            };
+        
             const cb = 'cb_' + Math.round(100000 * Math.random());
+            paramObj.callback = cb;
+        
+            // Build URL with proper encoding (encodeURIComponent instead of URLSearchParams)
+            const queryString = Object.entries(paramObj)
+                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+                .join('&');
+        
+            closeNewCaseModal();
+        
             window[cb] = (res) => {
                 if (res && res.status === 'success') {
                     showToast('New case added successfully!');
@@ -528,8 +547,10 @@
                 }
                 init();
             };
+        
             const s = document.createElement('script');
-            s.src = `${SCRIPT_URL}?${params.toString()}&callback=${cb}`;
+            s.src = `${SCRIPT_URL}?${queryString}`;
+            s.onerror = () => showToast('Network error — case not saved.', false);
             document.body.appendChild(s);
         }
 
