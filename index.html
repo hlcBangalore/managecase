@@ -52,6 +52,7 @@
                         <select class="form-control" id="nc_source">
                             <option value="HID">HID</option>
                             <option value="GHCO">GHCO</option>
+                            <option value="LCL">LCL (Local)</option>
                         </select>
                     </td></tr>
                     <tr><th>Priority</th><td>
@@ -308,8 +309,15 @@
                 const val = decodeURIComponent(cell.getAttribute('data-value') || '').trim();
                 const headerName = headers[idx];
 
-                if (headerName === "Case_ID" || headerName === "Date" || headerName === "Source") {
+                if (headerName === "Case_ID" || headerName === "Date") {
                     cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}" readonly>`;
+                }
+                else if (headerName === "Source") {
+                    cell.innerHTML = `<select class="form-control">
+                        ${["HID","GHCO","LCL"].map(s =>
+                            `<option value="${s}" ${s === val ? 'selected' : ''}>${s}</option>`
+                        ).join('')}
+                    </select>`;
                 }
                 else if (headerName === "Primary_HLC" || headerName === "Secondary_HLC") {
                     cell.innerHTML = `<select class="form-control">
