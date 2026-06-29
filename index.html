@@ -260,7 +260,7 @@
             const cells = row.querySelectorAll('td');
 
             const getCell = (i) => {
-                const el = cells[i].querySelector('input[type!="checkbox"], select');
+                const el = cells[i].querySelector('input:not([type="checkbox"]), select');
                 return el ? el.value : '';
             };
             const cdlEl = document.getElementById(`inline_cdl_${id}`);
@@ -436,7 +436,7 @@
         async function saveModalChanges() {
             const table = document.getElementById('detailsTable');
             function getVal(idx) {
-                const el = table.querySelector(`[data-idx="${idx}"] input[type!="checkbox"], [data-idx="${idx}"] select`);
+                const el = table.querySelector(`[data-idx="${idx}"] input:not([type="checkbox"]), [data-idx="${idx}"] select`);
                 return el ? el.value : '';
             }
             const cdlEl = document.getElementById('modal_cdl');
