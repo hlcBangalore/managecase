@@ -140,8 +140,8 @@
             tbody.innerHTML = '';
             sortedData.forEach(row => {
                 // row[18] is CDL — column S (index 18)
-                const cdlVal = row[18];
-                const cdlDisplay = (cdlVal === true || cdlVal === "TRUE" || cdlVal === "Yes") ? '&#10003;' : '';
+                const cdlVal = String(row[18] || '').trim();
+                const cdlDisplay = (cdlVal === "Yes" || cdlVal === "TRUE" || cdlVal === true) ? '&#10003;' : '';
                 tbody.innerHTML += `<tr id="row-${row[0]}">
                     <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
                     <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
@@ -314,7 +314,7 @@
                 const rawVal = row[idx] !== undefined ? row[idx] : '';
                 const cellVal = String(rawVal);
                 if (h === "CDL") {
-                    const isChecked = rawVal === true || cellVal === "TRUE" || cellVal === "Yes";
+                    const isChecked = String(rawVal).trim() === "Yes" || String(rawVal).trim() === "TRUE" || rawVal === true;
                     html += `<tr>
                         <th>${h}</th>
                         <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">
@@ -417,7 +417,7 @@
                                              placeholder="Type or select a doctor...">`;
                 }
                 else if (headerName === "CDL") {
-                    const isChecked = val === "true" || val === "TRUE" || val === "Yes";
+                    const isChecked = val === "Yes" || val === "TRUE";
                     cell.innerHTML = `<div class="form-check mt-1">
                         <input class="form-check-input" type="checkbox" id="modal_cdl" ${isChecked ? 'checked' : ''}>
                         <label class="form-check-label" for="modal_cdl">CDL Doctor</label>
