@@ -12,7 +12,7 @@
         <table class="table table-hover bg-white border">
             <thead>
                 <tr>
-                    <th>ID</th><th>Patient</th><th>Country</th><th>Congregation</th><th>Diagnosis</th><th>Stage</th><th>Status</th><th>HLC</th><th>PVG</th><th>Doctor</th><th>Hospital</th><th>Actions</th>
+                    <th>ID</th><th>Patient</th><th>Country</th><th>Congregation</th><th>Diagnosis</th><th>Stage</th><th>Status</th><th>HLC</th><th>PVG</th><th>Doctor</th><th>Hospital</th><th>CDL</th><th>Actions</th>
                 </tr>
             </thead>
             <tbody id="caseBody"></tbody>
@@ -96,6 +96,12 @@
                         <datalist id="ncDoctorList"></datalist>
                     </td></tr>
                     <tr><th>Hospital</th><td><input class="form-control" id="nc_hospital" placeholder="Hospital"></td></tr>
+                    <tr><th>CDL</th><td>
+                        <div class="form-check mt-1">
+                            <input class="form-check-input" type="checkbox" id="nc_cdl">
+                            <label class="form-check-label" for="nc_cdl">CDL Doctor</label>
+                        </div>
+                    </td></tr>
                     <tr><th>Notes</th><td><textarea class="form-control" id="nc_notes" rows="2" placeholder="Notes"></textarea></td></tr>
                 </table>
                 <div>
@@ -133,10 +139,14 @@
                 .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
             tbody.innerHTML = '';
             sortedData.forEach(row => {
+                // row[18] is CDL — column S (index 18)
+                const cdlVal = row[18];
+                const cdlDisplay = (cdlVal === true || cdlVal === "TRUE" || cdlVal === "Yes") ? '&#10003;' : '';
                 tbody.innerHTML += `<tr id="row-${row[0]}">
                     <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
                     <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
                     <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
+                    <td style="text-align:center">${cdlDisplay}</td>
                     <td>
                         <button class="btn btn-sm btn-primary me-1" onclick="editInline('${row[0]}')">Edit</button>
                         <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
@@ -148,7 +158,7 @@
         // ── INLINE EDIT ────────────────────────────────────────────────
 
         function editInline(id) {
-            const row = document.getElementById(`row-${id}`);
+            const row = document.querySelector(`tr[id="row-${id}"]`);
             const cells = row.querySelectorAll('td');
 
             row.dataset.original = JSON.stringify(Array.from(cells).map(c => c.innerText));
@@ -219,8 +229,14 @@
             // Hospital
             cells[10].innerHTML = `<input class="form-control form-control-sm" value="${cells[10].innerText.replace(/"/g, '&quot;')}">`;
 
-            // Action buttons
-            cells[11].innerHTML = `<div class="btn-group">
+            // CDL — checkbox (cell 11)
+            const curCDL = cells[11].innerText.trim() === '\u2713';
+            cells[11].innerHTML = `<div class="form-check" style="margin:0">
+                <input class="form-check-input" type="checkbox" id="inline_cdl_${id}" ${curCDL ? 'checked' : ''}>
+            </div>`;
+
+            // Action buttons — cell 12
+            cells[12].innerHTML = `<div class="btn-group">
                 <button class="btn btn-sm btn-success" onclick="saveInline('${id}')">Save</button>
                 <button class="btn btn-sm btn-secondary" onclick="cancelInline('${id}')">Cancel</button>
             </div>`;
@@ -230,8 +246,8 @@
             const row = document.querySelector(`tr[id="row-${id}"]`);
             const original = JSON.parse(row.dataset.original);
             const cells = row.querySelectorAll('td');
-            for (let i = 1; i < 11; i++) cells[i].innerText = original[i];
-            cells[11].innerHTML = `
+            for (let i = 1; i < 12; i++) cells[i].innerText = original[i];
+            cells[12].innerHTML = `
                 <button class="btn btn-sm btn-primary me-1" onclick="editInline('${id}')">Edit</button>
                 <button class="btn btn-sm btn-info" onclick="showDetails('${id}')">Details</button>`;
             const dl = document.getElementById('inlineDoctorList');
@@ -242,12 +258,14 @@
             const row = document.querySelector(`tr[id="row-${id}"]`);
             if (!row) return;
             const cells = row.querySelectorAll('td');
-            
+
             const getCell = (i) => {
-                const el = cells[i].querySelector('input, select');
+                const el = cells[i].querySelector('input[type!="checkbox"], select');
                 return el ? el.value : '';
             };
-        
+            const cdlEl = document.getElementById(`inline_cdl_${id}`);
+            const cdlVal = cdlEl && cdlEl.checked ? "Yes" : "No";
+
             const cb = 'cb_' + Math.round(100000 * Math.random());
             const params = {
                 action:       'updateCase',
@@ -262,20 +280,21 @@
                 pvg:          getCell(8),
                 doctor:       getCell(9),
                 hospital:     getCell(10),
+                cdl:          cdlVal,
                 callback:     cb
             };
-        
+
             window[cb] = (res) => {
-                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!res?.status);
+                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!(res && res.status === 'success'));
                 const dl = document.getElementById('inlineDoctorList');
                 if (dl) dl.remove();
                 init();
             };
-        
+
             const queryString = Object.entries(params)
                 .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
                 .join('&');
-            
+
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${queryString}`;
             document.body.appendChild(s);
@@ -288,15 +307,26 @@
             const row = cachedData.find(r => r[0] === id);
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
                              "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
-                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes", "CDL"];
 
             let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
-                const cellVal = row[idx] !== undefined ? String(row[idx]) : '';
-                html += `<tr>
-                    <th>${h}</th>
-                    <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">${cellVal}</td>
-                </tr>`;
+                const rawVal = row[idx] !== undefined ? row[idx] : '';
+                const cellVal = String(rawVal);
+                if (h === "CDL") {
+                    const isChecked = rawVal === true || cellVal === "TRUE" || cellVal === "Yes";
+                    html += `<tr>
+                        <th>${h}</th>
+                        <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">
+                            ${isChecked ? 'Yes' : 'No'}
+                        </td>
+                    </tr>`;
+                } else {
+                    html += `<tr>
+                        <th>${h}</th>
+                        <td class="cell-val" data-idx="${idx}" data-value="${encodeURIComponent(cellVal)}">${cellVal}</td>
+                    </tr>`;
+                }
             });
             html += `</table>
             <div id="modalActions">
@@ -311,7 +341,7 @@
         function toggleEdit() {
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
                              "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
-                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes"];
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes", "CDL"];
 
             const container = document.getElementById('detailsContent');
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -386,6 +416,13 @@
                                              autocomplete="off"
                                              placeholder="Type or select a doctor...">`;
                 }
+                else if (headerName === "CDL") {
+                    const isChecked = val === "true" || val === "TRUE" || val === "Yes";
+                    cell.innerHTML = `<div class="form-check mt-1">
+                        <input class="form-check-input" type="checkbox" id="modal_cdl" ${isChecked ? 'checked' : ''}>
+                        <label class="form-check-label" for="modal_cdl">CDL Doctor</label>
+                    </div>`;
+                }
                 else {
                     cell.innerHTML = `<input class="form-control" value="${val.replace(/"/g, '&quot;')}">`;
                 }
@@ -399,10 +436,12 @@
         async function saveModalChanges() {
             const table = document.getElementById('detailsTable');
             function getVal(idx) {
-                const el = table.querySelector(`[data-idx="${idx}"] input, [data-idx="${idx}"] select`);
+                const el = table.querySelector(`[data-idx="${idx}"] input[type!="checkbox"], [data-idx="${idx}"] select`);
                 return el ? el.value : '';
             }
-        
+            const cdlEl = document.getElementById('modal_cdl');
+            const cdlVal = cdlEl ? (cdlEl.checked ? "Yes" : "No") : "No";
+
             const cb = 'cb_' + Math.round(100000 * Math.random());
             const params = {
                 action:        'updateCase',
@@ -420,14 +459,15 @@
                 doctor:        getVal(14),
                 hospital:      getVal(15),
                 notes:         getVal(17),
+                cdl:           cdlVal,
                 callback:      cb
             };
-        
+
             window[cb] = (res) => {
-                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!res?.status);
+                showToast(res && res.status === 'success' ? 'Saved successfully!' : 'Save failed', !!(res && res.status === 'success'));
                 init();
             };
-        
+
             closeModal();
             const queryString = Object.entries(params)
                 .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -438,9 +478,7 @@
         }
 
         function closeModal() {
-            // Blur focused element before hiding to prevent aria-hidden warning
             if (document.activeElement) document.activeElement.blur();
-            
             const modalEl = document.getElementById('detailsModal');
             let modalInstance = bootstrap.Modal.getInstance(modalEl);
             if (!modalInstance) modalInstance = new bootstrap.Modal(modalEl);
@@ -468,21 +506,27 @@
             document.getElementById('ncDoctorList').innerHTML =
                 dropdownData.doctors.map(d => `<option value="${d}">`).join('');
 
-            ['nc_patient','nc_age','nc_country','nc_congregation',
-             'nc_diagnosis','nc_doctor','nc_hospital','nc_notes'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-            ['nc_sex','nc_source','nc_priority','nc_status','nc_stage'].forEach(id => {
-                document.getElementById(id).selectedIndex = 0;
-            });
+            // Reset fields with defaults
+            document.getElementById('nc_patient').value = '';
+            document.getElementById('nc_age').value = '';
+            document.getElementById('nc_country').value = 'India';
+            document.getElementById('nc_congregation').value = '';
+            document.getElementById('nc_diagnosis').value = '';
+            document.getElementById('nc_doctor').value = '';
+            document.getElementById('nc_hospital').value = '';
+            document.getElementById('nc_notes').value = '';
+            document.getElementById('nc_cdl').checked = false;
+            document.getElementById('nc_sex').selectedIndex = 0;
+            document.getElementById('nc_source').value = 'LCL';
+            document.getElementById('nc_priority').value = 'Normal';
+            document.getElementById('nc_status').value = 'New';
+            document.getElementById('nc_stage').value = 'Treatment';
 
             new bootstrap.Modal(document.getElementById('newCaseModal')).show();
         }
 
         function closeNewCaseModal() {
-            // Blur focused element before hiding to prevent aria-hidden warning
             if (document.activeElement) document.activeElement.blur();
-        
             const modalEl = document.getElementById('newCaseModal');
             let instance = bootstrap.Modal.getInstance(modalEl);
             if (!instance) instance = new bootstrap.Modal(modalEl);
@@ -499,8 +543,8 @@
         async function saveNewCase() {
             const patient = document.getElementById('nc_patient').value.trim();
             if (!patient) { alert("Patient name is required."); return; }
-        
-            // Build params object first
+
+            const cb = 'cb_' + Math.round(100000 * Math.random());
             const paramObj = {
                 action:        'addCase',
                 patient:       patient,
@@ -518,19 +562,13 @@
                 pvg:           document.getElementById('nc_pvg').value,
                 doctor:        document.getElementById('nc_doctor').value.trim(),
                 hospital:      document.getElementById('nc_hospital').value.trim(),
-                notes:         document.getElementById('nc_notes').value.trim()
+                cdl:           document.getElementById('nc_cdl').checked ? "Yes" : "No",
+                notes:         document.getElementById('nc_notes').value.trim(),
+                callback:      cb
             };
-        
-            const cb = 'cb_' + Math.round(100000 * Math.random());
-            paramObj.callback = cb;
-        
-            // Build URL with proper encoding (encodeURIComponent instead of URLSearchParams)
-            const queryString = Object.entries(paramObj)
-                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-                .join('&');
-        
+
             closeNewCaseModal();
-        
+
             window[cb] = (res) => {
                 if (res && res.status === 'success') {
                     showToast('New case added successfully!');
@@ -539,7 +577,10 @@
                 }
                 init();
             };
-        
+
+            const queryString = Object.entries(paramObj)
+                .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+                .join('&');
             const s = document.createElement('script');
             s.src = `${SCRIPT_URL}?${queryString}`;
             s.onerror = () => showToast('Network error — case not saved.', false);
@@ -555,7 +596,7 @@
             const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
             toast.show();
         }
-        
+
         // ── MISC ───────────────────────────────────────────────────────
 
         function resetView() { showDetails(currentCaseId); }
