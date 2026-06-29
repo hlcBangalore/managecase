@@ -142,7 +142,7 @@
             sortedData.forEach(row => {
                 console.log("ROW:", row[0], "| CDL raw:", row[18], "| type:", typeof row[18], "| JSON:", JSON.stringify(row[18]));
                 
-                const cdlVal = String(row[18] || '').trim();
+                const cdlVal = String(row[17] || '').trim();  // CDL = col R = index 17
                 const cdlDisplay = (cdlVal === "Yes" || cdlVal === "TRUE" || cdlVal === true) ? '&#10003;' : '';
                 tbody.innerHTML += `<tr id="row-${row[0]}">
                     <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
@@ -309,7 +309,7 @@
             const row = cachedData.find(r => r[0] === id);
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
                              "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
-                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes", "CDL"];
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "CDL", "Notes"];
 
             let html = `<table class="table table-bordered" id="detailsTable">`;
             headers.forEach((h, idx) => {
@@ -343,7 +343,7 @@
         function toggleEdit() {
             const headers = ["Case_ID", "Date", "Source", "Patient", "Age", "Sex", "Country",
                              "Congregation", "Priority", "Primary_HLC", "Secondary_HLC", "PVG",
-                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "Notes", "CDL"];
+                             "Diagnosis", "Status", "Treating_Dr", "Hospital", "Workflow_Stage", "CDL", "Notes"];
 
             const container = document.getElementById('detailsContent');
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -461,7 +461,7 @@
                 doctor:        getVal(14),
                 hospital:      getVal(15),
                 cdl:           cdlVal,
-                notes:         getVal(17),
+                notes:         getVal(18),
                 callback:      cb
             };
 
