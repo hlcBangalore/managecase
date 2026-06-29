@@ -139,12 +139,11 @@
                 .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
             tbody.innerHTML = '';
 
-            sortedData.forEach(row => {
-    console.log("ROW:", row[0], "| CDL raw:", row[18], "| type:", typeof row[18], "| JSON:", JSON.stringify(row[18]));
+
 
             
             sortedData.forEach(row => {
-                // row[18] is CDL — column S (index 18)
+    console.log("ROW:", row[0], "| CDL raw:", row[18], "| type:", typeof row[18], "| JSON:", JSON.stringify(row[18]));
                 const cdlVal = String(row[18] || '').trim();
                 const cdlDisplay = (cdlVal === "Yes" || cdlVal === "TRUE" || cdlVal === true) ? '&#10003;' : '';
                 tbody.innerHTML += `<tr id="row-${row[0]}">
