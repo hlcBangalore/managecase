@@ -140,7 +140,6 @@
             tbody.innerHTML = '';
             
             sortedData.forEach(row => {
-                console.log("ROW:", row[0], "| CDL raw:", row[18], "| type:", typeof row[18], "| JSON:", JSON.stringify(row[18]));
                 
                 const cdlVal = String(row[17] || '').trim();  // CDL = col R = index 17
                 const cdlDisplay = (cdlVal === "Yes" || cdlVal === "TRUE" || cdlVal === true) ? '&#10003;' : '';
