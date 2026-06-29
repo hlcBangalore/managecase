@@ -7,6 +7,11 @@
         .urgent-row { background-color: #f8d7da; }
         #mainContent { display: none; }
         #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        
+        /* Mobile-friendly: hide columns that aren't essential on small screens */
+        @media (max-width: 767px) {
+            .hide-mobile { display: none; }
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -225,32 +230,38 @@
         }
 
         function renderTable() {
-            const filter = document.getElementById("searchInput").value.toLowerCase();
-            const tbody = document.getElementById('caseBody');
-            const order = { "New": 1, "In Process": 2, "Closed": 3 };
-            let sortedData = cachedData.slice(1)
-                .filter(row => row.some(c => String(c).toLowerCase().includes(filter)))
-                .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
-            tbody.innerHTML = '';
-            sortedData.forEach(row => {
-                const cdlVal = String(row[17] || '').trim();
-                const cdlDisplay = cdlVal === "Yes" ? '&#10003;' : '';
-                // Only show Edit button if edit is unlocked
-                const editBtn = editUnlocked
-                    ? `<button class="btn btn-sm btn-primary me-1" onclick="editInline('${row[0]}')">Edit</button>`
-                    : '';
-                tbody.innerHTML += `<tr id="row-${row[0]}">
-                    <td>${row[0]}</td><td>${row[3]}</td><td>${row[6]}</td><td>${row[7]}</td>
-                    <td>${row[12]}</td><td>${row[16]}</td><td>${row[13]}</td><td>${row[9]}</td>
-                    <td>${row[11]}</td><td>${row[14]}</td><td>${row[15]}</td>
-                    <td style="text-align:center">${cdlDisplay}</td>
-                    <td>
-                        ${editBtn}
-                        <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
-                    </td>
-                </tr>`;
-            });
-        }
+                const filter = document.getElementById("searchInput").value.toLowerCase();
+                const tbody = document.getElementById('caseBody');
+                const order = { "New": 1, "In Process": 2, "Closed": 3 };
+                let sortedData = cachedData.slice(1)
+                    .filter(row => row.some(c => String(c).toLowerCase().includes(filter)))
+                    .sort((a, b) => (order[a[13]] || 4) - (order[b[13]] || 4));
+                
+                tbody.innerHTML = '';
+                sortedData.forEach(row => {
+                    const cdlVal = String(row[17] || '').trim();
+                    const cdlDisplay = cdlVal === "Yes" ? '&#10003;' : '';
+                    const editBtn = editUnlocked ? `<button class="btn btn-sm btn-primary me-1" onclick="editInline('${row[0]}')">Edit</button>` : '';
+                    
+                    tbody.innerHTML += `<tr id="row-${row[0]}">
+                        <td>${row[0]}</td>
+                        <td>${row[3]}<br><small class="text-muted d-md-none">${row[6]}</small></td> <td class="hide-mobile">${row[6]}</td>
+                        <td class="hide-mobile">${row[7]}</td>
+                        <td>${row[12]}</td>
+                        <td class="hide-mobile">${row[16]}</td>
+                        <td>${row[13]}</td>
+                        <td>${row[9]}</td>
+                        <td>${row[11]}</td>
+                        <td class="hide-mobile">${row[14]}</td>
+                        <td>${row[15]}</td>
+                        <td class="hide-mobile" style="text-align:center">${cdlDisplay}</td>
+                        <td>
+                            ${editBtn}
+                            <button class="btn btn-sm btn-info" onclick="showDetails('${row[0]}')">Details</button>
+                        </td>
+                    </tr>`;
+                });
+            }
 
         // ── INLINE EDIT ────────────────────────────────────────────────
 
